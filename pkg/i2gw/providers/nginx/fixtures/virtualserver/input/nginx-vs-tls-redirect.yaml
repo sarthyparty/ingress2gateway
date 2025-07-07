@@ -1,0 +1,25 @@
+---
+# VirtualServer with TLS redirect enabled
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServer
+metadata:
+  name: tls-redirect-webapp
+  namespace: default
+spec:
+  host: secure.example.com
+  tls:
+    secret: secure-tls
+    redirect:
+      enable: true
+      code: 301
+  upstreams:
+  - name: webapp-backend
+    service: webapp-service
+    port: 8080
+  routes:
+  - path: /
+    action:
+      pass: webapp-backend
+  - path: /api
+    action:
+      pass: webapp-backend

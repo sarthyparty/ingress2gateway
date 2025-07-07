@@ -1,0 +1,29 @@
+---
+# GlobalConfiguration defining custom listeners
+apiVersion: k8s.nginx.org/v1
+kind: GlobalConfiguration
+metadata:
+  name: nginx-configuration
+  namespace: nginx-ingress
+spec:
+  listeners:
+  - name: mysql-tcp
+    port: 3306
+    protocol: TCP
+---
+# Basic TCP TransportServer for database proxy
+apiVersion: k8s.nginx.org/v1
+kind: TransportServer
+metadata:
+  name: mysql-proxy
+  namespace: default
+spec:
+  listener:
+    name: mysql-tcp
+    protocol: TCP
+  upstreams:
+  - name: mysql-backend
+    service: mysql-service
+    port: 3306
+  action:
+    pass: mysql-backend

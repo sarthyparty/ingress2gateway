@@ -1,0 +1,147 @@
+---
+# Complex VirtualServer with multiple VirtualServerRoutes
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServer
+metadata:
+  name: multi-vsr-vs
+  namespace: default
+spec:
+  host: platform.example.com
+  tls:
+    secret: platform-tls
+  upstreams:
+  - name: frontend-backend
+    service: frontend-service
+    port: 3000
+  routes:
+  - path: /
+    action:
+      pass: frontend-backend
+  - path: /api/v1
+    route: api-v1/users-route
+  - path: /api/v1
+    route: api-v1/orders-route
+  - path: /api/v2
+    route: api-v2/beta-route
+  - path: /admin
+    route: admin/admin-panel-route
+---
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServerRoute
+metadata:
+  name: users-route
+  namespace: api-v1
+spec:
+  host: platform.example.com
+  upstreams:
+  - name: users-api
+    service: users-api-service
+    port: 8080
+  - name: users-cache
+    service: users-cache-service
+    port: 6379
+  subroutes:
+  - path: /api/v1/users
+    action:
+      pass: users-api
+  - path: /api/v1/users/cache
+    action:
+      pass: users-cache
+  - path: /api/v1/users/profile
+    matches:
+    - conditions:
+      - header: X-User-ID
+        value: ".*"
+      action:
+        proxy:
+          upstream: users-api
+          requestHeaders:
+            set:
+            - name: X-Profile-Request
+              value: "true"
+    action:
+      return:
+        code: 400
+        type: application/json
+        body: '{"error": "User ID required"}'
+---
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServerRoute
+metadata:
+  name: orders-route
+  namespace: api-v1
+spec:
+  host: platform.example.com
+  upstreams:
+  - name: orders-api
+    service: orders-api-service
+    port: 8080
+  - name: payment-api
+    service: payment-api-service
+    port: 8080
+  subroutes:
+  - path: /api/v1/orders
+    splits:
+    - weight: 90
+      action:
+        pass: orders-api
+    - weight: 10
+      action:
+        pass: payment-api
+  - path: /api/v1/orders/payment
+    action:
+      pass: payment-api
+---
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServerRoute
+metadata:
+  name: beta-route
+  namespace: api-v2
+spec:
+  host: platform.example.com
+  upstreams:
+  - name: beta-api
+    service: beta-api-service
+    port: 8080
+  subroutes:
+  - path: /api/v2/beta
+    matches:
+    - conditions:
+      - header: X-Beta-Access
+        value: enabled
+      action:
+        pass: beta-api
+    action:
+      return:
+        code: 403
+        type: application/json
+        body: '{"error": "Beta access required"}'
+---
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServerRoute
+metadata:
+  name: admin-panel-route
+  namespace: admin
+spec:
+  host: platform.example.com
+  upstreams:
+  - name: admin-api
+    service: admin-api-service
+    port: 8080
+  subroutes:
+  - path: /admin/dashboard
+    action:
+      pass: admin-api
+  - path: /admin/users
+    matches:
+    - conditions:
+      - header: Authorization
+        value: "Bearer .*"
+      - header: X-Admin-Role
+        value: "admin|superadmin"
+      action:
+        pass: admin-api
+    action:
+      redirect:
+        url: https://auth.example.com/admin
+        code: 302

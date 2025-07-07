@@ -1,0 +1,121 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  annotations:
+    gateway.networking.k8s.io/generator: ingress2gateway-dev
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/managed-by: ingress2gateway
+    ingress2gateway.io/source: nginx-virtualserver
+  name: default-gateway
+  namespace: default
+spec:
+  gatewayClassName: nginx
+  listeners:
+  - hostname: api.grpc.example.com
+    name: http-80-api-grpc-example-com
+    port: 80
+    protocol: HTTP
+  - hostname: api.grpc.example.com
+    name: https-443-api-grpc-example-com-grpc-tls
+    port: 443
+    protocol: HTTPS
+    tls:
+      certificateRefs:
+      - group: core
+        kind: Secret
+        name: grpc-tls
+      mode: Terminate
+status: {}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  annotations:
+    gateway.networking.k8s.io/generator: ingress2gateway-dev
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/managed-by: ingress2gateway
+    ingress2gateway.io/source: nginx-virtualserver
+    ingress2gateway.io/vs-name: mixed-grpc-vs
+  name: mixed-grpc-vs-httproute
+  namespace: default
+spec:
+  hostnames:
+  - api.grpc.example.com
+  parentRefs:
+  - name: default-gateway
+    sectionName: http-80-api-grpc-example-com
+  - name: default-gateway
+    sectionName: https-443-api-grpc-example-com-grpc-tls
+  rules:
+  - backendRefs:
+    - name: http-service
+      port: 8080
+    matches:
+    - path:
+        type: PathPrefix
+        value: /api/rest
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api.AuthService
+  - backendRefs:
+    - name: http-service
+      port: 8080
+    matches:
+    - path:
+        type: PathPrefix
+        value: /health
+status:
+  parents: null
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  annotations:
+    gateway.networking.k8s.io/generator: ingress2gateway-dev
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/managed-by: ingress2gateway
+    ingress2gateway.io/source: nginx-virtualserver
+    ingress2gateway.io/vs-name: mixed-grpc-vs
+  name: mixed-grpc-vs-grpcroute
+  namespace: default
+spec:
+  hostnames:
+  - api.grpc.example.com
+  parentRefs:
+  - name: default-gateway
+    sectionName: http-80-api-grpc-example-com
+  - name: default-gateway
+    sectionName: https-443-api-grpc-example-com-grpc-tls
+  rules:
+  - backendRefs:
+    - name: grpc-service
+      port: 9090
+    matches:
+    - method:
+        service: api.UserService
+  - backendRefs:
+    - name: grpc-auth-service
+      port: 9091
+    matches:
+    - headers:
+      - name: authorization
+        type: RegularExpression
+        value: Bearer .*
+      method:
+        service: api.AuthService
+  - backendRefs:
+    - name: grpc-service
+      port: 9090
+      weight: 70
+    - name: grpc-data-service
+      port: 9092
+      weight: 30
+    matches:
+    - method:
+        service: api.DataService
+status:
+  parents: null

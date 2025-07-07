@@ -1,0 +1,73 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  annotations:
+    gateway.networking.k8s.io/generator: ingress2gateway-dev
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/managed-by: ingress2gateway
+    ingress2gateway.io/source: nginx-virtualserver
+  name: default-gateway
+  namespace: default
+spec:
+  gatewayClassName: nginx
+  listeners:
+  - name: tcp-6379
+    port: 6379
+    protocol: TCP
+  - name: tcp-8883-mqtt-example-com
+    port: 8883
+    protocol: TCP
+status: {}
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TCPRoute
+metadata:
+  annotations:
+    gateway.networking.k8s.io/generator: ingress2gateway-dev
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/managed-by: ingress2gateway
+    ingress2gateway.io/source: nginx-transportserver
+    ingress2gateway.io/ts-name: mqtt-secure
+  name: mqtt-secure-tcproute
+  namespace: default
+spec:
+  parentRefs:
+  - name: default-gateway
+    sectionName: tcp-8883-mqtt-example-com
+  rules:
+  - backendRefs:
+    - group: core
+      kind: Service
+      name: mqtt-broker
+      namespace: default
+      port: 1883
+status:
+  parents: null
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TCPRoute
+metadata:
+  annotations:
+    gateway.networking.k8s.io/generator: ingress2gateway-dev
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/managed-by: ingress2gateway
+    ingress2gateway.io/source: nginx-transportserver
+    ingress2gateway.io/ts-name: redis-proxy
+  name: redis-proxy-tcproute
+  namespace: default
+spec:
+  parentRefs:
+  - name: default-gateway
+    sectionName: tcp-6379
+  rules:
+  - backendRefs:
+    - group: core
+      kind: Service
+      name: redis-service
+      namespace: default
+      port: 6379
+status:
+  parents: null
