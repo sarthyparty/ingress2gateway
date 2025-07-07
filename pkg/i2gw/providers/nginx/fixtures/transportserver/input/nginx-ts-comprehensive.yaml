@@ -1,0 +1,112 @@
+---
+# Comprehensive test with multiple protocols and GlobalConfiguration
+apiVersion: k8s.nginx.org/v1
+kind: GlobalConfiguration
+metadata:
+  name: nginx-configuration
+  namespace: nginx-ingress
+spec:
+  listeners:
+  - name: db-tcp
+    port: 3306
+    protocol: TCP
+  - name: secure-tcp
+    port: 8443
+    protocol: TCP
+  - name: dns-udp
+    port: 5353
+    protocol: UDP
+---
+# Web application (Layer 7)
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServer
+metadata:
+  name: webapp
+  namespace: default
+spec:
+  host: webapp.example.com
+  tls:
+    secret: webapp-tls
+  upstreams:
+  - name: web-backend
+    service: webapp-service
+    port: 8080
+  routes:
+  - path: /
+    action:
+      pass: web-backend
+  - path: /api
+    action:
+      pass: web-backend
+---
+# Database proxy (Layer 4 TCP)
+apiVersion: k8s.nginx.org/v1
+kind: TransportServer
+metadata:
+  name: mysql-proxy
+  namespace: default
+spec:
+  listener:
+    name: db-tcp
+    protocol: TCP
+  upstreams:
+  - name: mysql-cluster
+    service: mysql-service
+    port: 3306
+  action:
+    pass: mysql-cluster
+---
+# Secure API gateway (Layer 4 TLS termination)
+apiVersion: k8s.nginx.org/v1
+kind: TransportServer
+metadata:
+  name: secure-api
+  namespace: default
+spec:
+  listener:
+    name: secure-tcp
+    protocol: TCP
+  host: secure-api.example.com
+  tls:
+    secret: api-tls-secret
+  upstreams:
+  - name: secure-backend
+    service: secure-api-service
+    port: 8080
+  action:
+    pass: secure-backend
+---
+# DNS service (Layer 4 UDP)
+apiVersion: k8s.nginx.org/v1
+kind: TransportServer
+metadata:
+  name: dns-server
+  namespace: default
+spec:
+  listener:
+    name: dns-udp
+    protocol: UDP
+  upstreams:
+  - name: dns-backend
+    service: coredns-service
+    port: 53
+  action:
+    pass: dns-backend
+---
+# TLS Passthrough (Layer 4 TLS passthrough)
+apiVersion: k8s.nginx.org/v1
+kind: TransportServer
+metadata:
+  name: grpc-service
+  namespace: default
+spec:
+  listener:
+    name: tls-passthrough
+    protocol: TLS_PASSTHROUGH
+  host: grpc.example.com
+  upstreams:
+  - name: grpc-backend
+    service: grpc-service
+    port: 9090
+  action:
+    pass: grpc-backend

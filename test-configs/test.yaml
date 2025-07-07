@@ -1,0 +1,36 @@
+# ――― first VirtualServer ―――
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServer
+metadata:
+  name: myapp-vs-a
+  namespace: default
+spec:
+  host: myapp.example.com          # ← hostname
+  tls:
+    secret: myapp-tls
+  upstreams:
+    - name: backend-a
+      service: tea
+      port: 80
+  routes:
+    - path: /
+      action:
+        pass: backend-a
+
+---
+# ――― second VirtualServer (conflicts with the first) ―――
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServer
+metadata:
+  name: myapp-vs-b
+  namespace: default
+spec:
+  host: myapp.example.com          # ← same hostname, will be rejected
+  upstreams:
+    - name: backend-b
+      service: tea
+      port: 80
+  routes:
+    - path: /
+      action:
+        pass: backend-b

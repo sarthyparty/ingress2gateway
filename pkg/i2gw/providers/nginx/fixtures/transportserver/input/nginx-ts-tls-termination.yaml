@@ -1,0 +1,32 @@
+---
+# GlobalConfiguration defining custom listeners
+apiVersion: k8s.nginx.org/v1
+kind: GlobalConfiguration
+metadata:
+  name: nginx-configuration
+  namespace: nginx-ingress
+spec:
+  listeners:
+  - name: api-tls
+    port: 8443
+    protocol: TCP
+---
+# TLS Termination at gateway level
+apiVersion: k8s.nginx.org/v1
+kind: TransportServer
+metadata:
+  name: api-gateway
+  namespace: default
+spec:
+  listener:
+    name: api-tls
+    protocol: TCP
+  host: api.example.com
+  tls:
+    secret: api-tls-secret
+  upstreams:
+  - name: api-backend
+    service: api-service
+    port: 8080
+  action:
+    pass: api-backend

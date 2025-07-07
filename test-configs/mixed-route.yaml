@@ -1,0 +1,34 @@
+---
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServer
+metadata:
+  name: mixed-route
+  namespace: default
+spec:
+  host: mixed.example.com
+  upstreams:
+  - name: http-backend
+    service: http-service
+    port: 8080
+    # No type = HTTP
+  - name: grpc-backend
+    service: grpc-service
+    type: grpc
+    port: 9090
+  routes:
+  - path: /api/mixed
+    matches:
+    - conditions:
+      - header: content-type
+        value: "application/grpc"
+      action:
+        pass: grpc-backend  # Should go to GRPCRoute
+    - conditions:
+      - header: content-type
+        value: "application/json"
+      action:
+        pass: http-backend  # Should go to HTTPRoute
+    action:
+      return:
+        code: 404
+        body: "Not Found"  # Should go to HTTPRoute

@@ -1,0 +1,37 @@
+---
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServer
+metadata:
+  name: debug-grpc
+  namespace: default
+spec:
+  host: debug.example.com
+  upstreams:
+  - name: http-upstream
+    service: http-service
+    port: 8080
+    # No type specified = defaults to http
+  - name: grpc-upstream
+    service: grpc-service
+    type: grpc
+    port: 9090
+  routes:
+  - path: /http-only
+    action:
+      pass: http-upstream
+      
+  - path: /grpc-only
+    action:
+      pass: grpc-upstream
+      
+  - path: /grpc-with-condition
+    matches:
+    - conditions:
+      - header: x-test
+        value: "grpc"
+      action:
+        pass: grpc-upstream
+    action:
+      return:
+        code: 400
+        body: "Bad Request"

@@ -1,0 +1,106 @@
+Notifications from NGINX:
++--------------+----------------------------------------------------------------------------------------------+----------------+
+| MESSAGE TYPE |                                         NOTIFICATION                                         | CALLING OBJECT |
++--------------+----------------------------------------------------------------------------------------------+----------------+
+| INFO         | GlobalConfiguration not found                                                                |                |
++--------------+----------------------------------------------------------------------------------------------+----------------+
+| INFO         | Upstream 'user-service': LBMethod '' will be set to random two least_conn by default         |                |
++--------------+----------------------------------------------------------------------------------------------+----------------+
+| INFO         | Upstream 'user-service': UseClusterIP field is not currently converted to Gateway API        |                |
++--------------+----------------------------------------------------------------------------------------------+----------------+
+| INFO         | Upstream 'user-service': NextUpstreamTries field is not currently converted to Gateway API   |                |
++--------------+----------------------------------------------------------------------------------------------+----------------+
+| INFO         | Upstream 'health-service': LBMethod '' will be set to random two least_conn by default       |                |
++--------------+----------------------------------------------------------------------------------------------+----------------+
+| INFO         | Upstream 'health-service': UseClusterIP field is not currently converted to Gateway API      |                |
++--------------+----------------------------------------------------------------------------------------------+----------------+
+| INFO         | Upstream 'health-service': NextUpstreamTries field is not currently converted to Gateway API |                |
++--------------+----------------------------------------------------------------------------------------------+----------------+
+| INFO         | Created HTTPRoute 'grpc-proper-httproute' with 1 HTTP rules for host 'grpc.example.com'      |                |
++--------------+----------------------------------------------------------------------------------------------+----------------+
+| INFO         | Created GRPCRoute 'grpc-proper-grpcroute' with 2 gRPC rules for host 'grpc.example.com'      |                |
++--------------+----------------------------------------------------------------------------------------------+----------------+
+
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  annotations:
+    gateway.networking.k8s.io/generator: ingress2gateway-dev
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/managed-by: ingress2gateway
+    ingress2gateway.io/source: nginx-virtualserver
+  name: default-gateway-0
+  namespace: default
+spec:
+  gatewayClassName: nginx
+  listeners:
+  - hostname: grpc.example.com
+    name: http-80-grpc-example-com
+    port: 80
+    protocol: HTTP
+status: {}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  annotations:
+    gateway.networking.k8s.io/generator: ingress2gateway-dev
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/managed-by: ingress2gateway
+    ingress2gateway.io/source: nginx-virtualserver
+    ingress2gateway.io/vs-name: grpc-proper
+  name: grpc-proper-httproute
+  namespace: default
+spec:
+  hostnames:
+  - grpc.example.com
+  parentRefs:
+  - name: default-gateway
+    sectionName: http-80-grpc-example-com
+  rules:
+  - backendRefs:
+    - name: health-service
+      port: 8080
+    matches:
+    - path:
+        type: PathPrefix
+        value: /health
+status:
+  parents: null
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  annotations:
+    gateway.networking.k8s.io/generator: ingress2gateway-dev
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/managed-by: ingress2gateway
+    ingress2gateway.io/source: nginx-virtualserver
+    ingress2gateway.io/vs-name: grpc-proper
+  name: grpc-proper-grpcroute
+  namespace: default
+spec:
+  hostnames:
+  - grpc.example.com
+  parentRefs:
+  - name: default-gateway
+    sectionName: http-80-grpc-example-com
+  rules:
+  - backendRefs:
+    - name: user-service
+      port: 9090
+    matches:
+    - method:
+        service: api.UserService
+  - backendRefs:
+    - name: user-service
+      port: 9090
+    matches:
+    - method:
+        method: GetUser
+        service: api.UserService
+status:
+  parents: null

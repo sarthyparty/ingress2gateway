@@ -1,0 +1,27 @@
+---
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServer
+metadata:
+  name: grpc-proper
+  namespace: default
+spec:
+  host: grpc.example.com
+  upstreams:
+  - name: user-service
+    service: user-service
+    type: grpc
+    port: 9090
+  - name: health-service  
+    service: health-service
+    port: 8080
+    # No type = HTTP
+  routes:
+  - path: /api.UserService
+    action:
+      pass: user-service  # Should go to GRPCRoute
+  - path: /api.UserService/GetUser
+    action:
+      pass: user-service  # Should go to GRPCRoute  
+  - path: /health
+    action:
+      pass: health-service  # Should go to HTTPRoute

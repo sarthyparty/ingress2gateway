@@ -2,7 +2,7 @@
 
 This provider converts [NGINX Ingress Controller](https://github.com/nginx/kubernetes-ingress) resources to Gateway API resources.
 
-**Note**: This provider is specifically for NGINX Ingress Controller, not the community [ingress-nginx](https://github.com/kubernetes/ingress-nginx) controller. If you're using the community ingress-nginx controller, please use the `ingress-nginx` provider instead.
+**Note**: This provider is specifically for NGINX Inc's commercial Ingress Controller, not the community [ingress-nginx](https://github.com/kubernetes/ingress-nginx) controller. If you're using the community ingress-nginx controller, please use the `ingress-nginx` provider instead.
 
 ## Supported Resources
 
@@ -29,7 +29,7 @@ This provider converts [NGINX Ingress Controller](https://github.com/nginx/kuber
 ## Usage
 
 ```bash
-# Convert NGINX Ingress Controller resources from cluster
+# Convert NGINX Inc Ingress Controller resources from cluster
 ingress2gateway print --providers=nginx
 
 # Convert from file
@@ -59,14 +59,75 @@ The provider supports two SSL redirect annotations with identical behavior:
 * **`nginx.org/redirect-to-https`** - Redirects all HTTP traffic to HTTPS with a 301 status code
 * **`ingress.kubernetes.io/ssl-redirect`** - Redirects all HTTP traffic to HTTPS with a 301 status code (legacy compatibility)
 
+## Examples
+
+```yaml
+# SSL Backend
+annotations:
+  nginx.org/ssl-services: "backend-service"
+
+# WebSocket Backend
+annotations:
+  nginx.org/websocket-services: "websocket-service"
+
+# Header Manipulation  
+annotations:
+  nginx.org/proxy-set-headers: "X-Custom-Header: custom-value"
+  nginx.org/proxy-hide-headers: "Server,X-Powered-By"
+
+# URL Rewriting
+annotations:
+  nginx.org/rewrites: "api-service=/v1/api"
+
+# Custom Ports
+annotations:
+  nginx.org/listen-ports: "8080,8081"
+  nginx.org/listen-ports-ssl: "8443"
+
+# Regex Paths
+annotations:
+  nginx.org/path-regex: "true"
+
+# SSL Redirect (Modern)
+annotations:
+  nginx.org/redirect-to-https: "true"
+
+# SSL Redirect (Legacy)
+annotations:
+  ingress.kubernetes.io/ssl-redirect: "true"
+
+# HSTS Security Headers
+annotations:
+  nginx.org/hsts: "true"
+  nginx.org/hsts-max-age: "31536000"
+  nginx.org/hsts-include-subdomains: "true"
+```
+
+## Fixture Generation
+
+The nginx provider includes test fixtures that demonstrate conversion from NGINX resources to Gateway API resources. You can generate these fixtures using the following make targets:
+
+### Clean Fixture Generation (Recommended for CI/Tests)
+```bash
+make generate-clean-fixtures
+```
+This generates fixtures with only Gateway API resources and no notifications, resulting in clean output files suitable for automated testing and version control.
+
+### Standard Fixture Generation (For Development)
+```bash
+make generate-fixtures
+```
+This generates fixtures that include both Gateway API resources and informational notifications, which can be helpful during development to see warnings and conversion details.
 ## Contributing
 
-When adding support for new NGINX Ingress Controller annotations:
+When adding support for new NGINX Inc Ingress Controller annotations:
 
 1. Add the annotation constant to `annotations/constants.go`
 2. Implement the conversion logic in the appropriate `annotations/*.go` file
 3. Add comprehensive tests in `annotations/*_test.go`
 4. Update this README with the new annotation details
+5. Add fixture tests showing the conversion in action
+6. Use `make generate-clean-fixtures` to update test fixtures
 
 For more information on the provider architecture, see [PROVIDER.md](../../PROVIDER.md).
 

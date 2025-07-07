@@ -1,0 +1,118 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  annotations:
+    gateway.networking.k8s.io/generator: ingress2gateway-dev
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/managed-by: ingress2gateway
+    ingress2gateway.io/source: nginx-virtualserver
+  name: default-gateway
+  namespace: default
+spec:
+  gatewayClassName: nginx
+  listeners:
+  - hostname: canary.example.com
+    name: http-80-canary-example-com
+    port: 80
+    protocol: HTTP
+  - hostname: canary.example.com
+    name: https-443-canary-example-com-canary-tls
+    port: 443
+    protocol: HTTPS
+    tls:
+      certificateRefs:
+      - group: core
+        kind: Secret
+        name: canary-tls
+      mode: Terminate
+status: {}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  annotations:
+    gateway.networking.k8s.io/generator: ingress2gateway-dev
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/managed-by: ingress2gateway
+    ingress2gateway.io/source: nginx-virtualserver
+    ingress2gateway.io/vs-name: traffic-splitting-vs
+  name: traffic-splitting-vs-httproute
+  namespace: default
+spec:
+  hostnames:
+  - canary.example.com
+  parentRefs:
+  - name: default-gateway
+    sectionName: http-80-canary-example-com
+  - name: default-gateway
+    sectionName: https-443-canary-example-com-canary-tls
+  rules:
+  - backendRefs:
+    - name: stable-service
+      port: 8080
+      weight: 80
+    - name: canary-service
+      port: 8080
+      weight: 20
+    matches:
+    - path:
+        type: PathPrefix
+        value: /app
+  - backendRefs:
+    - name: stable-service
+      port: 8080
+      weight: 70
+    - filters:
+      - requestHeaderModifier:
+          set:
+          - name: X-Canary
+            value: "true"
+        type: RequestHeaderModifier
+      name: canary-service
+      port: 8080
+      weight: 25
+    - filters:
+      - requestHeaderModifier:
+          set:
+          - name: X-Experimental
+            value: "true"
+          - name: X-Version
+            value: experimental
+        type: RequestHeaderModifier
+      name: experimental-service
+      port: 8080
+      weight: 5
+    matches:
+    - path:
+        type: PathPrefix
+        value: /api
+  - backendRefs:
+    - name: stable-service
+      port: 8080
+    matches:
+    - path:
+        type: PathPrefix
+        value: /feature
+  - backendRefs:
+    - name: stable-service
+      port: 8080
+      weight: 90
+    - filters:
+      - requestRedirect:
+          hostname: beta.example.com
+          path:
+            replaceFullPath: /redirect-test
+            type: ReplaceFullPath
+          scheme: https
+          statusCode: 302
+        type: RequestRedirect
+      name: ""
+      weight: 10
+    matches:
+    - path:
+        type: PathPrefix
+        value: /redirect-test
+status:
+  parents: null

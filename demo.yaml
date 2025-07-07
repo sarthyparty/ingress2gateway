@@ -1,0 +1,165 @@
+# Super Simple Demo: NGINX Provider Conversion
+# Single annotation example
+
+---
+# Simple Ingress with one annotation
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: demo-ingress
+  namespace: demo
+  annotations:
+    nginx.org/proxy-set-headers: "X-Custom-App: WebApp,X-Environment: Demo"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: app.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: web-service
+            port:
+              number: 80
+
+---
+# Simple VirtualServer with traffic splitting
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServer
+metadata:
+  name: demo-vs
+  namespace: demo
+spec:
+  host: split.example.com
+  upstreams:
+  - name: coffee
+    service: coffee-service
+    port: 80
+  - name: tea
+    service: tea-service
+    port: 80
+  routes:
+  - path: /
+    splits:
+    - weight: 80
+      action:
+        pass: coffee
+    - weight: 20
+      action:
+        pass: tea
+
+---
+# Supporting services with nginx echo deployments
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-service
+  namespace: demo
+spec:
+  ports:
+  - port: 80
+  selector:
+    app: web
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-deployment
+  namespace: demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+      - name: nginx-echo
+        image: mendhak/http-https-echo:31
+        ports:
+        - containerPort: 8080
+        - containerPort: 8443
+        env:
+        - name: HTTP_PORT
+          value: "80"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: coffee-service
+  namespace: demo
+spec:
+  ports:
+  - port: 80
+  selector:
+    app: coffee
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coffee-deployment
+  namespace: demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: coffee
+  template:
+    metadata:
+      labels:
+        app: coffee
+    spec:
+      containers:
+      - name: nginx-echo
+        image: mendhak/http-https-echo:31
+        ports:
+        - containerPort: 8080
+        - containerPort: 8443
+        env:
+        - name: HTTP_PORT
+          value: "80"
+        - name: ECHO_BACK_TO_CLIENT
+          value: "COFFEE-SERVICE"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tea-service
+  namespace: demo
+spec:
+  ports:
+  - port: 80
+  selector:
+    app: tea
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tea-deployment
+  namespace: demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tea
+  template:
+    metadata:
+      labels:
+        app: tea
+    spec:
+      containers:
+      - name: nginx-echo
+        image: mendhak/http-https-echo:31
+        ports:
+        - containerPort: 8080
+        - containerPort: 8443
+        env:
+        - name: HTTP_PORT
+          value: "80"
+        - name: ECHO_BACK_TO_CLIENT
+          value: "TEA-SERVICE"

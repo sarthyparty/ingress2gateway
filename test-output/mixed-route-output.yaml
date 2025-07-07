@@ -1,0 +1,114 @@
+Notifications from NGINX:
++--------------+--------------------------------------------------------------------------------------------+----------------+
+| MESSAGE TYPE |                                        NOTIFICATION                                        | CALLING OBJECT |
++--------------+--------------------------------------------------------------------------------------------+----------------+
+| INFO         | GlobalConfiguration not found                                                              |                |
++--------------+--------------------------------------------------------------------------------------------+----------------+
+| INFO         | Upstream 'http-backend': LBMethod '' will be set to random two least_conn by default       |                |
++--------------+--------------------------------------------------------------------------------------------+----------------+
+| INFO         | Upstream 'http-backend': UseClusterIP field is not currently converted to Gateway API      |                |
++--------------+--------------------------------------------------------------------------------------------+----------------+
+| INFO         | Upstream 'http-backend': NextUpstreamTries field is not currently converted to Gateway API |                |
++--------------+--------------------------------------------------------------------------------------------+----------------+
+| INFO         | Upstream 'grpc-backend': LBMethod '' will be set to random two least_conn by default       |                |
++--------------+--------------------------------------------------------------------------------------------+----------------+
+| INFO         | Upstream 'grpc-backend': UseClusterIP field is not currently converted to Gateway API      |                |
++--------------+--------------------------------------------------------------------------------------------+----------------+
+| INFO         | Upstream 'grpc-backend': NextUpstreamTries field is not currently converted to Gateway API |                |
++--------------+--------------------------------------------------------------------------------------------+----------------+
+| WARNING      | Return action with code 404 not directly supported in Gateway API                          |                |
++--------------+--------------------------------------------------------------------------------------------+----------------+
+| INFO         | Created HTTPRoute 'mixed-route-httproute' with 2 HTTP rules for host 'mixed.example.com'   |                |
++--------------+--------------------------------------------------------------------------------------------+----------------+
+| INFO         | Created GRPCRoute 'mixed-route-grpcroute' with 1 gRPC rules for host 'mixed.example.com'   |                |
++--------------+--------------------------------------------------------------------------------------------+----------------+
+
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  annotations:
+    gateway.networking.k8s.io/generator: ingress2gateway-dev
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/managed-by: ingress2gateway
+    ingress2gateway.io/source: nginx-virtualserver
+  name: default-gateway-0
+  namespace: default
+spec:
+  gatewayClassName: nginx
+  listeners:
+  - hostname: mixed.example.com
+    name: http-80-mixed-example-com
+    port: 80
+    protocol: HTTP
+status: {}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  annotations:
+    gateway.networking.k8s.io/generator: ingress2gateway-dev
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/managed-by: ingress2gateway
+    ingress2gateway.io/source: nginx-virtualserver
+    ingress2gateway.io/vs-name: mixed-route
+  name: mixed-route-httproute
+  namespace: default
+spec:
+  hostnames:
+  - mixed.example.com
+  parentRefs:
+  - name: default-gateway
+    sectionName: http-80-mixed-example-com
+  rules:
+  - backendRefs:
+    - name: http-service
+      port: 8080
+    matches:
+    - headers:
+      - name: content-type
+        type: RegularExpression
+        value: (?i)^application/json$
+      path:
+        type: PathPrefix
+        value: /api/mixed
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/mixed
+status:
+  parents: null
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  annotations:
+    gateway.networking.k8s.io/generator: ingress2gateway-dev
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/managed-by: ingress2gateway
+    ingress2gateway.io/source: nginx-virtualserver
+    ingress2gateway.io/vs-name: mixed-route
+  name: mixed-route-grpcroute
+  namespace: default
+spec:
+  hostnames:
+  - mixed.example.com
+  parentRefs:
+  - name: default-gateway
+    sectionName: http-80-mixed-example-com
+  rules:
+  - backendRefs:
+    - name: grpc-service
+      port: 9090
+    matches:
+    - headers:
+      - name: content-type
+        type: RegularExpression
+        value: (?i)^application/grpc$
+      method:
+        method: mixed
+        service: api
+status:
+  parents: null

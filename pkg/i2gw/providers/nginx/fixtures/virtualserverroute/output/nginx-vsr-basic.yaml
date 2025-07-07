@@ -1,0 +1,48 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  annotations:
+    gateway.networking.k8s.io/generator: ingress2gateway-dev
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/managed-by: ingress2gateway
+    ingress2gateway.io/source: nginx-virtualserver
+  name: default-gateway
+  namespace: default
+spec:
+  gatewayClassName: nginx
+  listeners:
+  - hostname: app.example.com
+    name: http-80-app-example-com
+    port: 80
+    protocol: HTTP
+status: {}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  annotations:
+    gateway.networking.k8s.io/generator: ingress2gateway-dev
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/managed-by: ingress2gateway
+    ingress2gateway.io/source: nginx-virtualserver
+    ingress2gateway.io/vs-name: main-vs
+  name: main-vs-httproute
+  namespace: default
+spec:
+  hostnames:
+  - app.example.com
+  parentRefs:
+  - name: default-gateway
+    sectionName: http-80-app-example-com
+  rules:
+  - backendRefs:
+    - name: main-service
+      port: 8080
+    matches:
+    - path:
+        type: PathPrefix
+        value: /
+status:
+  parents: null

@@ -1,0 +1,35 @@
+---
+# Basic TCP TransportServer
+apiVersion: k8s.nginx.org/v1
+kind: TransportServer
+metadata:
+  name: tcp-proxy
+  namespace: default
+spec:
+  listener:
+    name: tcp-listener
+    protocol: TCP
+  upstreams:
+  - name: tcp-backend
+    service: tcp-service
+    port: 8080
+  action:
+    pass: tcp-backend
+---
+# TLS Passthrough TransportServer
+apiVersion: k8s.nginx.org/v1
+kind: TransportServer
+metadata:
+  name: tls-passthrough
+  namespace: default
+spec:
+  listener:
+    name: tls-passthrough
+    protocol: TLS_PASSTHROUGH
+  host: secure.example.com
+  upstreams:
+  - name: tls-backend
+    service: tls-service
+    port: 8443
+  action:
+    pass: tls-backend

@@ -1,0 +1,29 @@
+---
+# GlobalConfiguration defining custom listeners
+apiVersion: k8s.nginx.org/v1
+kind: GlobalConfiguration
+metadata:
+  name: nginx-configuration
+  namespace: nginx-ingress
+spec:
+  listeners:
+  - name: dns-udp
+    port: 5353
+    protocol: UDP
+---
+# UDP TransportServer for DNS services
+apiVersion: k8s.nginx.org/v1
+kind: TransportServer
+metadata:
+  name: dns-server
+  namespace: default
+spec:
+  listener:
+    name: dns-udp
+    protocol: UDP
+  upstreams:
+  - name: dns-backend
+    service: coredns
+    port: 53
+  action:
+    pass: dns-backend

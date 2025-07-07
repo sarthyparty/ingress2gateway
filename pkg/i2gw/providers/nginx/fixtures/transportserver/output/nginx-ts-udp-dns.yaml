@@ -1,0 +1,44 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  annotations:
+    gateway.networking.k8s.io/generator: ingress2gateway-dev
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/managed-by: ingress2gateway
+    ingress2gateway.io/source: nginx-virtualserver
+  name: default-gateway
+  namespace: default
+spec:
+  gatewayClassName: nginx
+  listeners:
+  - name: udp-5353
+    port: 5353
+    protocol: UDP
+status: {}
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: UDPRoute
+metadata:
+  annotations:
+    gateway.networking.k8s.io/generator: ingress2gateway-dev
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/managed-by: ingress2gateway
+    ingress2gateway.io/source: nginx-transportserver
+    ingress2gateway.io/ts-name: dns-server
+  name: dns-server-udproute
+  namespace: default
+spec:
+  parentRefs:
+  - name: default-gateway
+    sectionName: udp-5353
+  rules:
+  - backendRefs:
+    - group: core
+      kind: Service
+      name: coredns
+      namespace: default
+      port: 53
+status:
+  parents: null
