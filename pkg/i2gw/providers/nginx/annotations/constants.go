@@ -16,11 +16,9 @@ limitations under the License.
 
 package annotations
 
-
 const (
 	// NGINX Ingress Controller annotation prefixes
 	nginxOrgPrefix = "nginx.org/"
-	nginxComPrefix = "nginx.com/"
 
 	// Standard annotations that map directly to Gateway API
 	nginxRewritesAnnotation        = nginxOrgPrefix + "rewrites"

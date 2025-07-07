@@ -1,6 +1,8 @@
 # NGINX Ingress Annotations
 
-This directory contains the implementation of NGINX-specific Ingress annotations for the ingress2gateway conversion tool.
+This directory contains the implementation of [NGINX Inc's Ingress Controller](https://github.com/nginxinc/kubernetes-ingress) annotations for the ingress2gateway conversion tool.
+
+**Note**: This is specifically for NGINX Inc's commercial Ingress Controller, not the community [ingress-nginx](https://github.com/kubernetes/ingress-nginx) controller.
 
 ## Structure
 
