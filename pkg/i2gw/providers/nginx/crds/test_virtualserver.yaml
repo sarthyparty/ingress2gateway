@@ -1,0 +1,49 @@
+# Test VirtualServer with comprehensive features for conversion testing
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServer
+metadata:
+  name: test-app
+  namespace: test-namespace
+spec:
+  host: test.example.com
+  ingressClass: nginx-test
+  tls:
+    secret: test-tls-secret
+    redirect:
+      enable: true
+      code: 301
+  upstreams:
+  - name: backend-v1
+    service: backend-service-v1
+    port: 8080
+    lbMethod: round_robin
+  - name: backend-v2
+    service: backend-service-v2
+    port: 8080
+    lbMethod: least_conn
+  routes:
+  - path: /api/v1
+    action:
+      pass: backend-v1
+  - path: /api/v2
+    action:
+      pass: backend-v2
+  - path: /redirect
+    action:
+      redirect:
+        url: https://new.example.com/new-path
+        code: 302
+  - path: /split
+    splits:
+    - weight: 80
+      action:
+        pass: backend-v1
+    - weight: 20
+      action:
+        pass: backend-v2
+  - path: /error
+    action:
+      return:
+        code: 404
+        text: "Not Found"
+

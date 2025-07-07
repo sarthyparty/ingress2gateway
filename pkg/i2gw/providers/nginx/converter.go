@@ -1,0 +1,88 @@
+/*
+Copyright 2024 The Kubernetes Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package nginx
+
+import (
+	networkingv1 "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/util/validation/field"
+
+	"github.com/kubernetes-sigs/ingress2gateway/pkg/i2gw"
+	"github.com/kubernetes-sigs/ingress2gateway/pkg/i2gw/intermediate"
+	"github.com/kubernetes-sigs/ingress2gateway/pkg/i2gw/providers/common"
+	"github.com/kubernetes-sigs/ingress2gateway/pkg/i2gw/providers/nginx/annotations"
+	"github.com/kubernetes-sigs/ingress2gateway/pkg/i2gw/providers/nginx/crds"
+)
+
+type resourcesToIRConverter struct {
+	featureParsers                []i2gw.FeatureParser
+	implementationSpecificOptions i2gw.ProviderImplementationSpecificOptions
+}
+
+func newResourcesToIRConverter() *resourcesToIRConverter {
+	return &resourcesToIRConverter{
+		featureParsers: []i2gw.FeatureParser{
+			annotations.RewriteTargetFeature,
+			annotations.SSLRedirectFeature,
+			annotations.ServerAliasFeature,
+			annotations.HeaderManipulationFeature,
+			annotations.BackendProtocolFeature,
+			annotations.PathRegexFeature,
+			annotations.SecurityFeature,
+			annotations.ListenPortsFeature,
+		},
+		implementationSpecificOptions: i2gw.ProviderImplementationSpecificOptions{
+			// TODO: Add nginx-specific implementation options
+		},
+	}
+}
+
+func (c *resourcesToIRConverter) convert(storage *storage) (intermediate.IR, field.ErrorList) {
+	ingressList := []networkingv1.Ingress{}
+	for _, ingress := range storage.Ingresses {
+		ingressList = append(ingressList, *ingress)
+	}
+
+	// Convert standard Ingress resources to IR
+	ir, errorList := common.ToIR(ingressList, storage.ServicePorts, c.implementationSpecificOptions)
+	if len(errorList) > 0 {
+		return intermediate.IR{}, errorList
+	}
+
+	// Convert VirtualServer CRDs to IR
+	virtualServerIR, _, errs := crds.VirtualServerToGatewayIR(storage.VirtualServers)
+	if len(errs) > 0 {
+		errorList = append(errorList, errs...)
+	}
+
+	if len(errorList) > 0 {
+		return intermediate.IR{}, errorList
+	}
+
+	// Merge IRs
+	ir, errs = intermediate.MergeIRs(ir, virtualServerIR)
+	if len(errs) > 0 {
+		return intermediate.IR{}, errs
+	}
+
+	// Apply feature parsers for nginx-specific annotations
+	for _, parseFeatureFunc := range c.featureParsers {
+		errs = parseFeatureFunc(ingressList, storage.ServicePorts, &ir)
+		errorList = append(errorList, errs...)
+	}
+
+	return ir, errorList
+}

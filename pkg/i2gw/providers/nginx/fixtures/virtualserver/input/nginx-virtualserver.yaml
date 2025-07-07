@@ -1,0 +1,15 @@
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServer
+metadata:
+  name: test-vs
+  namespace: default
+spec:
+  host: vs.example.com
+  upstreams:
+  - name: backend-v1
+    service: backend-service
+    port: 8080
+  routes:
+  - path: /api
+    action:
+      pass: backend-v1
