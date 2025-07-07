@@ -27,37 +27,35 @@ import (
 
 // CommonNginxIngressClasses contains NGINX IngressClass names
 var CommonNginxIngressClasses = sets.New(
-	"nginx",                    // Default NGINX Inc class
-	"nic",                      // Common abbreviation
-	"nginx-controller",         // Descriptive name
-	"nginx-ingress",            // Alternative naming
-	"nginx-inc",                // Company-specific
-	"nginx-ingress-controller", // Full descriptive name
+	"nginx",
+	"nic",
+	"nginx-controller",
+	"nginx-ingress",
+	"nginx-inc",
+	"nginx-ingress-controller",
 )
 
 type resourceReader struct {
 	conf *i2gw.ProviderConf
 }
 
+// newResourceReader returns a resourceReader instance
 func newResourceReader(conf *i2gw.ProviderConf) *resourceReader {
 	return &resourceReader{
 		conf: conf,
 	}
 }
 
+// readResourcesFromCluster reads nginx resources from the Kubernetes cluster
 func (r *resourceReader) readResourcesFromCluster(ctx context.Context) (*storage, error) {
 	storage := newResourceStorage()
 
-	// Read core Ingress resources
 	ingresses, err := common.ReadIngressesFromCluster(ctx, r.conf.Client, CommonNginxIngressClasses)
 	if err != nil {
 		return nil, err
 	}
 	storage.Ingresses = ingresses
 
-	// VirtualServer support removed to reduce PR size
-
-	// Read Services
 	services, err := common.ReadServicesFromCluster(ctx, r.conf.Client)
 	if err != nil {
 		return nil, err
@@ -67,19 +65,16 @@ func (r *resourceReader) readResourcesFromCluster(ctx context.Context) (*storage
 	return storage, nil
 }
 
+// readResourcesFromFile reads nginx resources from a YAML file
 func (r *resourceReader) readResourcesFromFile(filename string) (*storage, error) {
 	storage := newResourceStorage()
 
-	// Read core Ingress resources
 	ingresses, err := common.ReadIngressesFromFile(filename, r.conf.Namespace, CommonNginxIngressClasses)
 	if err != nil {
 		return nil, err
 	}
 	storage.Ingresses = ingresses
 
-	// VirtualServer support removed to reduce PR size
-
-	// Read Services
 	services, err := common.ReadServicesFromFile(filename, r.conf.Namespace)
 	if err != nil {
 		return nil, err
@@ -89,6 +84,3 @@ func (r *resourceReader) readResourcesFromFile(filename string) (*storage, error
 	return storage, nil
 }
 
-// VirtualServer support removed to reduce PR size
-
-// VirtualServer support removed to reduce PR size

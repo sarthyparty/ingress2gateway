@@ -29,28 +29,25 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-// sslRedirectFeature converts SSL redirect annotations to Gateway API filters,
+// SSLRedirectFeature converts SSL redirect annotations to Gateway API filters,
 // handling the distinction between conditional and unconditional redirects.
 func SSLRedirectFeature(ingresses []networkingv1.Ingress, servicePorts map[types.NamespacedName]map[string]int32, ir *intermediate.IR) field.ErrorList {
 	var errs field.ErrorList
 
 	for _, ingress := range ingresses {
-		// Read both modern and legacy annotations
 		modernRedirect, modernExists := ingress.Annotations[nginxRedirectToHTTPSAnnotation]
 		legacyRedirect, legacyExists := ingress.Annotations[legacySSLRedirectAnnotation]
 
-		// Determine which type of redirect to apply. Modern takes precedence.
 		var redirectType string
 		if modernExists && modernRedirect == "true" {
 			redirectType = "conditional"
 		} else if legacyExists && legacyRedirect == "true" {
 			redirectType = "unconditional"
 		} else {
-			continue // No redirect annotation found
+			continue
 		}
 
 		for _, rule := range ingress.Spec.Rules {
-			// Ensure the Gateway has an HTTPS listener for this host.
 			ensureHTTPSListener(ingress, rule, ir)
 
 			routeName := common.RouteName(ingress.Name, rule.Host)
@@ -60,11 +57,8 @@ func SSLRedirectFeature(ingresses []networkingv1.Ingress, servicePorts map[types
 				continue
 			}
 
-			// Apply the appropriate redirect logic
 			switch redirectType {
 			case "conditional":
-				// Conditional redirect: Matches on X-Forwarded-Proto: http
-				// A new rule is added to the HTTPRoute specifically for the redirect.
 				redirectRule := gatewayv1.HTTPRouteRule{
 					Matches: []gatewayv1.HTTPRouteMatch{
 						{
@@ -87,12 +81,9 @@ func SSLRedirectFeature(ingresses []networkingv1.Ingress, servicePorts map[types
 						},
 					},
 				}
-				// Prepend the redirect rule to ensure it's evaluated first.
 				httpRouteContext.HTTPRoute.Spec.Rules = append([]gatewayv1.HTTPRouteRule{redirectRule}, httpRouteContext.HTTPRoute.Spec.Rules...)
 
 			case "unconditional":
-				// Unconditional redirect: Applies to all rules in the HTTPRoute.
-				// This modifies existing rules to perform the redirect.
 				for i := range httpRouteContext.HTTPRoute.Spec.Rules {
 					httpRouteContext.HTTPRoute.Spec.Rules[i].Filters = []gatewayv1.HTTPRouteFilter{
 						{
@@ -103,7 +94,6 @@ func SSLRedirectFeature(ingresses []networkingv1.Ingress, servicePorts map[types
 							},
 						},
 					}
-					// BackendRefs must be nil when a redirect filter is used.
 					httpRouteContext.HTTPRoute.Spec.Rules[i].BackendRefs = nil
 				}
 			}
@@ -131,11 +121,10 @@ func ensureHTTPSListener(ingress networkingv1.Ingress, rule networkingv1.Ingress
 	hostname := gatewayv1.Hostname(rule.Host)
 	for _, listener := range gatewayContext.Gateway.Spec.Listeners {
 		if listener.Protocol == gatewayv1.HTTPSProtocolType && (listener.Hostname == nil || *listener.Hostname == hostname) {
-			return // Listener already exists
+			return
 		}
 	}
 
-	// Add a new HTTPS listener
 	httpsListener := gatewayv1.Listener{
 		Name:     gatewayv1.SectionName(fmt.Sprintf("https-%s", strings.ReplaceAll(rule.Host, ".", "-"))),
 		Protocol: gatewayv1.HTTPSProtocolType,

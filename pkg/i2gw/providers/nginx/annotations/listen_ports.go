@@ -30,17 +30,14 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-// listenPortsFeature processes nginx.org/listen-ports and nginx.org/listen-ports-ssl annotations
-// These annotations REPLACE the default ports (80/443) with custom ports, following NIC behavior
+// ListenPortsFeature processes nginx.org/listen-ports and nginx.org/listen-ports-ssl annotations
 func ListenPortsFeature(ingresses []networkingv1.Ingress, servicePorts map[types.NamespacedName]map[string]int32, ir *intermediate.IR) field.ErrorList {
 	var errs field.ErrorList
 
 	for _, ingress := range ingresses {
-		// Extract custom ports from annotations
 		httpPorts := extractListenPorts(ingress.Annotations[nginxListenPortsAnnotation])
 		sslPorts := extractListenPorts(ingress.Annotations[nginxListenPortsSSLAnnotation])
 
-		// Process if ANY custom ports are specified (replaces defaults)
 		if len(httpPorts) > 0 || len(sslPorts) > 0 {
 			errs = append(errs, replaceGatewayPortsWithCustom(ingress, httpPorts, sslPorts, ir)...)
 		}
@@ -65,7 +62,6 @@ func extractListenPorts(portsAnnotation string) []int32 {
 		}
 
 		if port, err := strconv.ParseInt(portStr, 10, 32); err == nil {
-			// Validate port range (1-65535)
 			if port > 0 && port <= 65535 {
 				ports = append(ports, int32(port))
 			}
@@ -80,14 +76,11 @@ func extractListenPorts(portsAnnotation string) []int32 {
 func replaceGatewayPortsWithCustom(ingress networkingv1.Ingress, httpPorts, sslPorts []int32, ir *intermediate.IR) field.ErrorList {
 	var errs field.ErrorList
 
-	// Get gateway class name from ingress
 	gatewayClassName := getGatewayClassName(ingress)
 	gatewayKey := types.NamespacedName{Namespace: ingress.Namespace, Name: gatewayClassName}
 
-	// Get or create gateway context
 	gatewayContext, exists := ir.Gateways[gatewayKey]
 	if !exists {
-		// Create new gateway if it doesn't exist
 		gatewayContext = intermediate.GatewayContext{
 			Gateway: gatewayv1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
@@ -102,22 +95,16 @@ func replaceGatewayPortsWithCustom(ingress networkingv1.Ingress, httpPorts, sslP
 		}
 	}
 
-	// Check if annotations are present AND have non-empty values
-	// Empty string annotations should be treated same as missing annotations (use defaults)
 	hasHTTPAnnotation := ingress.Annotations[nginxListenPortsAnnotation] != "" && len(httpPorts) > 0
 	hasSSLAnnotation := ingress.Annotations[nginxListenPortsSSLAnnotation] != "" && len(sslPorts) > 0
 
-	// Determine which ports to use (custom ports replace defaults)
 	portsToUse := determinePortsToUse(httpPorts, sslPorts, hasHTTPAnnotation, hasSSLAnnotation)
 
-	// For this ingress, we need to remove any default listeners and add custom ones
-	// First, remove any existing default listeners for this ingress's hostnames
 	var filteredListeners []gatewayv1.Listener
 	for _, existingListener := range gatewayContext.Gateway.Spec.Listeners {
 		shouldKeep := true
 		for _, rule := range ingress.Spec.Rules {
 			hostname := rule.Host
-			// Remove default port listeners that match this ingress's hostnames
 			if existingListener.Hostname != nil && string(*existingListener.Hostname) == hostname {
 				if (existingListener.Port == 80 && existingListener.Protocol == gatewayv1.HTTPProtocolType) ||
 					(existingListener.Port == 443 && existingListener.Protocol == gatewayv1.HTTPSProtocolType) {
@@ -135,29 +122,23 @@ func replaceGatewayPortsWithCustom(ingress networkingv1.Ingress, httpPorts, sslP
 	for _, rule := range ingress.Spec.Rules {
 		hostname := rule.Host
 
-		// Add HTTP listeners
 		for _, port := range portsToUse.HTTP {
 			listener := createListener(hostname, port, gatewayv1.HTTPProtocolType)
 			filteredListeners = append(filteredListeners, listener)
 		}
 
-		// Add HTTPS listeners
 		for _, port := range portsToUse.HTTPS {
 			listener := createListener(hostname, port, gatewayv1.HTTPSProtocolType)
 			filteredListeners = append(filteredListeners, listener)
 		}
 	}
 
-	// Update the gateway with filtered listeners
 	gatewayContext.Gateway.Spec.Listeners = filteredListeners
-
-	// Update gateway in IR
 	ir.Gateways[gatewayKey] = gatewayContext
 
 	return errs
 }
 
-// portConfiguration holds the final ports to use for HTTP and HTTPS
 type portConfiguration struct {
 	HTTP  []int32
 	HTTPS []int32
@@ -182,7 +163,6 @@ func determinePortsToUse(customHTTPPorts, customSSLPorts []int32, hasHTTPAnnotat
 
 // createListener creates a Gateway listener for the given hostname, port, and protocol
 func createListener(hostname string, port int32, protocol gatewayv1.ProtocolType) gatewayv1.Listener {
-	// Create safe listener name
 	listenerName := createListenerName(hostname, port, protocol)
 
 	listener := gatewayv1.Listener{
@@ -191,7 +171,6 @@ func createListener(hostname string, port int32, protocol gatewayv1.ProtocolType
 		Protocol: protocol,
 	}
 
-	// Add hostname if specified
 	if hostname != "" {
 		listener.Hostname = (*gatewayv1.Hostname)(&hostname)
 	}
@@ -201,10 +180,8 @@ func createListener(hostname string, port int32, protocol gatewayv1.ProtocolType
 
 // createListenerName generates a safe listener name from hostname, port, and protocol
 func createListenerName(hostname string, port int32, protocol gatewayv1.ProtocolType) string {
-	// Sanitize hostname for use in listener name
 	safeName := common.NameFromHost(hostname)
 	protocolStr := strings.ToLower(string(protocol))
-
 	return fmt.Sprintf("%s-%s-%d", safeName, protocolStr, port)
 }
 
@@ -213,6 +190,5 @@ func getGatewayClassName(ingress networkingv1.Ingress) string {
 	if ingress.Spec.IngressClassName != nil && *ingress.Spec.IngressClassName != "" {
 		return *ingress.Spec.IngressClassName
 	}
-	// Default fallback
 	return "nginx"
 }

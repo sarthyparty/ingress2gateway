@@ -17,11 +17,6 @@ limitations under the License.
 package intermediate
 
 // NginxServiceIR holds nginx-specific service configurations
-// from annotations that need provider-specific tracking
 type NginxServiceIR struct {
-	// Application protocol for backend services (e.g., "https", "grpc")
 	AppProtocol string
 }
-
-// VirtualServer and other CRD-specific structures removed to reduce PR size.
-// This file now only contains annotation-specific IR extensions.

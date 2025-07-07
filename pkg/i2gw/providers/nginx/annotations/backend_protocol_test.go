@@ -28,54 +28,53 @@ import (
 	gatewayv1alpha3 "sigs.k8s.io/gateway-api/apis/v1alpha3"
 )
 
-func TestProcessSSLServicesAnnotation(t *testing.T) {
-	testCases := []struct {
-		name                       string
-		annotation                 string
-		expectedBackendTLSPolicies int
-		expectedServiceNames       []string
+func TestSSLServicesAnnotation(t *testing.T) {
+	tests := []struct {
+		name               string
+		annotation         string
+		expectedPolicies   int
+		expectedServices   []string
 	}{
 		{
-			name:                       "single ssl service",
-			annotation:                 "secure-api",
-			expectedBackendTLSPolicies: 1,
-			expectedServiceNames:       []string{"secure-api"},
+			name:             "single service",
+			annotation:       "secure-api",
+			expectedPolicies: 1,
+			expectedServices: []string{"secure-api"},
 		},
 		{
-			name:                       "multiple ssl services",
-			annotation:                 "secure-api,auth-service",
-			expectedBackendTLSPolicies: 2,
-			expectedServiceNames:       []string{"secure-api", "auth-service"},
+			name:             "multiple services",
+			annotation:       "secure-api,auth-service",
+			expectedPolicies: 2,
+			expectedServices: []string{"secure-api", "auth-service"},
 		},
 		{
-			name:                       "ssl services with spaces",
-			annotation:                 " secure-api , auth-service , payment-api ",
-			expectedBackendTLSPolicies: 3,
-			expectedServiceNames:       []string{"secure-api", "auth-service", "payment-api"},
+			name:             "spaces in annotation",
+			annotation:       " secure-api , auth-service , payment-api ",
+			expectedPolicies: 3,
+			expectedServices: []string{"secure-api", "auth-service", "payment-api"},
 		},
 		{
-			name:                       "empty annotation",
-			annotation:                 "",
-			expectedBackendTLSPolicies: 0,
-			expectedServiceNames:       []string{},
+			name:             "empty annotation",
+			annotation:       "",
+			expectedPolicies: 0,
+			expectedServices: []string{},
 		},
 		{
-			name:                       "annotation with empty values",
-			annotation:                 "secure-api,,auth-service,",
-			expectedBackendTLSPolicies: 2,
-			expectedServiceNames:       []string{"secure-api", "auth-service"},
+			name:             "empty values in annotation",
+			annotation:       "secure-api,,auth-service,",
+			expectedPolicies: 2,
+			expectedServices: []string{"secure-api", "auth-service"},
 		},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			// Setup Ingress with ssl-services annotation
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			ingress := networkingv1.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-ingress",
 					Namespace: "default",
 					Annotations: map[string]string{
-						nginxSSLServicesAnnotation: tc.annotation,
+						nginxSSLServicesAnnotation: tt.annotation,
 					},
 				},
 				Spec: networkingv1.IngressSpec{
@@ -103,30 +102,25 @@ func TestProcessSSLServicesAnnotation(t *testing.T) {
 				},
 			}
 
-			// Setup IR
 			ir := intermediate.IR{
 				BackendTLSPolicies: make(map[types.NamespacedName]gatewayv1alpha3.BackendTLSPolicy),
 			}
 
-			// Execute
-			errs := processSSLServicesAnnotation(ingress, tc.annotation, &ir)
+			errs := processSSLServicesAnnotation(ingress, tt.annotation, &ir)
 			if len(errs) > 0 {
 				t.Fatalf("Unexpected errors: %v", errs)
 			}
 
-			// Verify BackendTLSPolicy count
-			if len(ir.BackendTLSPolicies) != tc.expectedBackendTLSPolicies {
-				t.Errorf("Expected %d BackendTLSPolicies, got %d", tc.expectedBackendTLSPolicies, len(ir.BackendTLSPolicies))
+			if len(ir.BackendTLSPolicies) != tt.expectedPolicies {
+				t.Errorf("Expected %d BackendTLSPolicies, got %d", tt.expectedPolicies, len(ir.BackendTLSPolicies))
 			}
 
-			// Verify each expected service has a BackendTLSPolicy
 			serviceNames := make(map[string]bool)
 			for _, policy := range ir.BackendTLSPolicies {
 				if len(policy.Spec.TargetRefs) > 0 {
 					serviceName := string(policy.Spec.TargetRefs[0].Name)
 					serviceNames[serviceName] = true
 
-					// Verify policy structure
 					if policy.Spec.TargetRefs[0].Kind != "Service" {
 						t.Errorf("Expected TargetRef Kind 'Service', got '%s'", policy.Spec.TargetRefs[0].Kind)
 					}
@@ -134,12 +128,10 @@ func TestProcessSSLServicesAnnotation(t *testing.T) {
 						t.Errorf("Expected TargetRef Group '%s', got '%s'", gatewayv1.GroupName, policy.Spec.TargetRefs[0].Group)
 					}
 
-					// Verify TLS validation config
 					if policy.Spec.Validation.Hostname != gatewayv1.PreciseHostname("example.com") {
 						t.Errorf("Expected hostname 'example.com', got '%s'", policy.Spec.Validation.Hostname)
 					}
 
-					// Verify labels
 					if policy.Labels["app.kubernetes.io/managed-by"] != "ingress2gateway" {
 						t.Errorf("Expected managed-by label 'ingress2gateway', got '%s'", policy.Labels["app.kubernetes.io/managed-by"])
 					}
@@ -150,7 +142,7 @@ func TestProcessSSLServicesAnnotation(t *testing.T) {
 			}
 
 			// Verify all expected services are present
-			for _, expectedService := range tc.expectedServiceNames {
+			for _, expectedService := range tt.expectedServices {
 				if !serviceNames[expectedService] {
 					t.Errorf("Expected BackendTLSPolicy for service '%s' not found", expectedService)
 				}
@@ -160,20 +152,20 @@ func TestProcessSSLServicesAnnotation(t *testing.T) {
 }
 
 func TestBackendProtocolFeature(t *testing.T) {
-	testCases := []struct {
+	tests := []struct {
 		name        string
 		annotations map[string]string
 		expected    int
 	}{
 		{
-			name: "ssl-services annotation",
+			name: "ssl services",
 			annotations: map[string]string{
 				nginxSSLServicesAnnotation: "secure-api,auth-service",
 			},
 			expected: 2,
 		},
 		{
-			name: "no backend protocol annotations",
+			name: "no backend annotations",
 			annotations: map[string]string{
 				"nginx.org/rewrite-target": "/",
 			},
@@ -186,14 +178,13 @@ func TestBackendProtocolFeature(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			// Setup Ingress
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			ingress := networkingv1.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "test-ingress",
 					Namespace:   "default",
-					Annotations: tc.annotations,
+					Annotations: tt.annotations,
 				},
 				Spec: networkingv1.IngressSpec{
 					IngressClassName: ptr.To("nginx"),
@@ -216,9 +207,8 @@ func TestBackendProtocolFeature(t *testing.T) {
 				t.Fatalf("Unexpected errors: %v", errs)
 			}
 
-			// Verify result
-			if len(ir.BackendTLSPolicies) != tc.expected {
-				t.Errorf("Expected %d BackendTLSPolicies, got %d", tc.expected, len(ir.BackendTLSPolicies))
+			if len(ir.BackendTLSPolicies) != tt.expected {
+				t.Errorf("Expected %d BackendTLSPolicies, got %d", tt.expected, len(ir.BackendTLSPolicies))
 			}
 		})
 	}

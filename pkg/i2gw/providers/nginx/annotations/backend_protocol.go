@@ -30,17 +30,15 @@ import (
 	gatewayv1alpha3 "sigs.k8s.io/gateway-api/apis/v1alpha3"
 )
 
-// backendProtocolFeature converts backend protocol annotations to appropriate route types
+// BackendProtocolFeature converts backend protocol annotations to appropriate route types
 func BackendProtocolFeature(ingresses []networkingv1.Ingress, servicePorts map[types.NamespacedName]map[string]int32, ir *intermediate.IR) field.ErrorList {
 	var errs field.ErrorList
 
 	for _, ingress := range ingresses {
-		// Process ssl-services annotation for HTTPS backends
 		if sslServices, exists := ingress.Annotations[nginxSSLServicesAnnotation]; exists && sslServices != "" {
 			errs = append(errs, processSSLServicesAnnotation(ingress, sslServices, ir)...)
 		}
 
-		// Process grpc-services annotation for gRPC backends
 		if grpcServices, exists := ingress.Annotations[nginxGRPCServicesAnnotation]; exists && grpcServices != "" {
 			errs = append(errs, processGRPCServicesAnnotation(ingress, grpcServices, ir)...)
 		}
@@ -53,7 +51,6 @@ func BackendProtocolFeature(ingresses []networkingv1.Ingress, servicePorts map[t
 func processSSLServicesAnnotation(ingress networkingv1.Ingress, sslServices string, ir *intermediate.IR) field.ErrorList {
 	var errs field.ErrorList
 
-	// Parse comma-separated service names that should use HTTPS
 	services := strings.Split(sslServices, ",")
 	sslServiceSet := make(map[string]bool)
 	for _, service := range services {
@@ -63,12 +60,9 @@ func processSSLServicesAnnotation(ingress networkingv1.Ingress, sslServices stri
 		}
 	}
 
-	// Initialize BackendTLSPolicies map if needed
 	if ir.BackendTLSPolicies == nil {
 		ir.BackendTLSPolicies = make(map[types.NamespacedName]gatewayv1alpha3.BackendTLSPolicy)
 	}
-
-	// Create BackendTLSPolicy for each SSL service
 	for serviceName := range sslServiceSet {
 		policyName := fmt.Sprintf("%s-%s-backend-tls", ingress.Name, serviceName)
 		policyKey := types.NamespacedName{
@@ -76,10 +70,7 @@ func processSSLServicesAnnotation(ingress networkingv1.Ingress, sslServices stri
 			Name:      policyName,
 		}
 
-		// Use system CA certificates for TLS validation
 		wellKnownCACerts := gatewayv1alpha3.WellKnownCACertificatesSystem
-
-		// Create BackendTLSPolicy
 		policy := gatewayv1alpha3.BackendTLSPolicy{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: gatewayv1alpha3.GroupVersion.String(),
@@ -117,16 +108,11 @@ func processSSLServicesAnnotation(ingress networkingv1.Ingress, sslServices stri
 }
 
 // parseGRPCServiceMethod parses gRPC service and method from HTTP path
-// Expected formats:
-//   - /helloworld.Greeter/SayHello -> service: "helloworld.Greeter", method: "SayHello"
-//   - /helloworld.Greeter -> service: "helloworld.Greeter", method: ""
 func parseGRPCServiceMethod(path string) (service, method string) {
-	// Remove leading slash
 	if strings.HasPrefix(path, "/") {
 		path = path[1:]
 	}
 	
-	// Split by slash to separate service and method
 	parts := strings.SplitN(path, "/", 2)
 	if len(parts) >= 1 && parts[0] != "" {
 		service = parts[0]
@@ -140,12 +126,9 @@ func parseGRPCServiceMethod(path string) (service, method string) {
 
 // getIngressHostname extracts the hostname from the ingress rules
 func getIngressHostname(ingress networkingv1.Ingress) gatewayv1.PreciseHostname {
-	// Use the first rule's hostname if available
 	if len(ingress.Spec.Rules) > 0 && ingress.Spec.Rules[0].Host != "" {
 		return gatewayv1.PreciseHostname(ingress.Spec.Rules[0].Host)
 	}
-	
-	// Fallback to a default hostname if no rules or host specified
 	return "backend.local"
 }
 

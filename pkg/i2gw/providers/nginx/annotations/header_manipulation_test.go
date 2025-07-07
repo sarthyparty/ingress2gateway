@@ -30,7 +30,7 @@ import (
 )
 
 func TestParseSetHeaders(t *testing.T) {
-	testCases := []struct {
+	tests := []struct {
 		name     string
 		input    string
 		expected map[string]string
@@ -99,15 +99,15 @@ func TestParseSetHeaders(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			result := parseSetHeaders(tc.input)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := parseSetHeaders(tt.input)
 			
-			if len(result) != len(tc.expected) {
-				t.Errorf("Expected %d headers, got %d", len(tc.expected), len(result))
+			if len(result) != len(tt.expected) {
+				t.Errorf("Expected %d headers, got %d", len(tt.expected), len(result))
 			}
 			
-			for expectedName, expectedValue := range tc.expected {
+			for expectedName, expectedValue := range tt.expected {
 				if actualValue, exists := result[expectedName]; !exists {
 					t.Errorf("Expected header %s not found", expectedName)
 				} else if actualValue != expectedValue {
@@ -118,8 +118,8 @@ func TestParseSetHeaders(t *testing.T) {
 	}
 }
 
-func TestProcessHideHeadersAnnotation(t *testing.T) {
-	testCases := []struct {
+func TestHideHeaders(t *testing.T) {
+	tests := []struct {
 		name            string
 		hideHeaders     string
 		expectedHeaders []string
@@ -146,15 +146,14 @@ func TestProcessHideHeadersAnnotation(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			// Setup Ingress and IR
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			ingress := networkingv1.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-ingress",
 					Namespace: "default",
 					Annotations: map[string]string{
-						nginxProxyHideHeadersAnnotation: tc.hideHeaders,
+						nginxProxyHideHeadersAnnotation: tt.hideHeaders,
 					},
 				},
 				Spec: networkingv1.IngressSpec{
@@ -214,8 +213,7 @@ func TestProcessHideHeadersAnnotation(t *testing.T) {
 				},
 			}
 
-			// Execute feature parser using the new refactored approach
-			filter := createResponseHeaderModifier(tc.hideHeaders)
+			filter := createResponseHeaderModifier(tt.hideHeaders)
 			if filter == nil {
 				t.Fatal("Expected filter to be created")
 			}
@@ -224,7 +222,6 @@ func TestProcessHideHeadersAnnotation(t *testing.T) {
 				t.Fatalf("Unexpected errors: %v", errs)
 			}
 
-			// Verify results
 			updatedRoute := ir.HTTPRoutes[routeKey].HTTPRoute
 			if len(updatedRoute.Spec.Rules) == 0 {
 				t.Fatal("Expected at least one rule")
@@ -244,12 +241,11 @@ func TestProcessHideHeadersAnnotation(t *testing.T) {
 				t.Fatal("Expected ResponseHeaderModifier to be non-nil")
 			}
 
-			if len(filter.ResponseHeaderModifier.Remove) != len(tc.expectedHeaders) {
-				t.Fatalf("Expected %d headers to remove, got %d", len(tc.expectedHeaders), len(filter.ResponseHeaderModifier.Remove))
+			if len(filter.ResponseHeaderModifier.Remove) != len(tt.expectedHeaders) {
+				t.Fatalf("Expected %d headers to remove, got %d", len(tt.expectedHeaders), len(filter.ResponseHeaderModifier.Remove))
 			}
 
-			// Verify all expected headers are present
-			for _, expectedHeader := range tc.expectedHeaders {
+			for _, expectedHeader := range tt.expectedHeaders {
 				found := false
 				for _, actualHeader := range filter.ResponseHeaderModifier.Remove {
 					if actualHeader == expectedHeader {
@@ -265,8 +261,8 @@ func TestProcessHideHeadersAnnotation(t *testing.T) {
 	}
 }
 
-func TestProcessSetHeadersAnnotation(t *testing.T) {
-	testCases := []struct {
+func TestSetHeaders(t *testing.T) {
+	tests := []struct {
 		name            string
 		setHeaders      string
 		expectedHeaders []gatewayv1.HTTPHeader
@@ -287,14 +283,14 @@ func TestProcessSetHeadersAnnotation(t *testing.T) {
 			},
 		},
 		{
-			name:            "headers with NGINX variables are filtered out",
+			name:            "nginx variables filtered out",
 			setHeaders:      "X-Real-IP: $remote_addr,X-Custom: hello-world",
 			expectedHeaders: []gatewayv1.HTTPHeader{
 				{Name: "X-Custom", Value: "hello-world"},
 			},
 		},
 		{
-			name:            "headers with empty values are filtered out",
+			name:            "empty values filtered out",
 			setHeaders:      "X-Empty-Header,X-Custom: hello-world",
 			expectedHeaders: []gatewayv1.HTTPHeader{
 				{Name: "X-Custom", Value: "hello-world"},
@@ -302,15 +298,14 @@ func TestProcessSetHeadersAnnotation(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			// Setup Ingress and IR
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			ingress := networkingv1.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-ingress",
 					Namespace: "default",
 					Annotations: map[string]string{
-						nginxProxySetHeadersAnnotation: tc.setHeaders,
+						nginxProxySetHeadersAnnotation: tt.setHeaders,
 					},
 				},
 				Spec: networkingv1.IngressSpec{
@@ -370,8 +365,7 @@ func TestProcessSetHeadersAnnotation(t *testing.T) {
 				},
 			}
 
-			// Execute feature parser using the new refactored approach
-			filter := createRequestHeaderModifier(tc.setHeaders)
+			filter := createRequestHeaderModifier(tt.setHeaders)
 			var errs field.ErrorList
 			if filter != nil {
 				errs = addFilterToIngressRoutes(ingress, *filter, &ir)
@@ -380,15 +374,13 @@ func TestProcessSetHeadersAnnotation(t *testing.T) {
 				t.Fatalf("Unexpected errors: %v", errs)
 			}
 
-			// Verify results
 			updatedRoute := ir.HTTPRoutes[routeKey].HTTPRoute
 			if len(updatedRoute.Spec.Rules) == 0 {
 				t.Fatal("Expected at least one rule")
 			}
 
 			rule := updatedRoute.Spec.Rules[0]
-			if len(tc.expectedHeaders) == 0 {
-				// If no headers are expected, there should be no filters
+			if len(tt.expectedHeaders) == 0 {
 				if len(rule.Filters) > 0 {
 					t.Fatalf("Expected no filters, got %d", len(rule.Filters))
 				}
@@ -408,12 +400,11 @@ func TestProcessSetHeadersAnnotation(t *testing.T) {
 				t.Fatal("Expected RequestHeaderModifier to be non-nil")
 			}
 
-			if len(filter.RequestHeaderModifier.Set) != len(tc.expectedHeaders) {
-				t.Fatalf("Expected %d headers to set, got %d", len(tc.expectedHeaders), len(filter.RequestHeaderModifier.Set))
+			if len(filter.RequestHeaderModifier.Set) != len(tt.expectedHeaders) {
+				t.Fatalf("Expected %d headers to set, got %d", len(tt.expectedHeaders), len(filter.RequestHeaderModifier.Set))
 			}
 
-			// Verify all expected headers are present
-			for _, expectedHeader := range tc.expectedHeaders {
+			for _, expectedHeader := range tt.expectedHeaders {
 				found := false
 				for _, actualHeader := range filter.RequestHeaderModifier.Set {
 					if actualHeader.Name == expectedHeader.Name && actualHeader.Value == expectedHeader.Value {
@@ -430,7 +421,7 @@ func TestProcessSetHeadersAnnotation(t *testing.T) {
 }
 
 func TestHeaderManipulationFeature(t *testing.T) {
-	testCases := []struct {
+	tests := []struct {
 		name                   string
 		annotations            map[string]string
 		expectedHideHeaders    []string
@@ -467,14 +458,13 @@ func TestHeaderManipulationFeature(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			// Setup Ingress and IR
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			ingress := networkingv1.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "test-ingress",
 					Namespace:   "default",
-					Annotations: tc.annotations,
+					Annotations: tt.annotations,
 				},
 				Spec: networkingv1.IngressSpec{
 					IngressClassName: ptr.To("nginx"),
@@ -533,13 +523,11 @@ func TestHeaderManipulationFeature(t *testing.T) {
 				},
 			}
 
-			// Execute feature parser
 			errs := HeaderManipulationFeature([]networkingv1.Ingress{ingress}, nil, &ir)
 			if len(errs) > 0 {
 				t.Fatalf("Unexpected errors: %v", errs)
 			}
 
-			// Verify results
 			updatedRoute := ir.HTTPRoutes[routeKey].HTTPRoute
 			if len(updatedRoute.Spec.Rules) == 0 {
 				t.Fatal("Expected at least one rule")
@@ -547,12 +535,11 @@ func TestHeaderManipulationFeature(t *testing.T) {
 
 			rule := updatedRoute.Spec.Rules[0]
 
-			// Count expected filters
 			expectedFilterCount := 0
-			if len(tc.expectedHideHeaders) > 0 {
+			if len(tt.expectedHideHeaders) > 0 {
 				expectedFilterCount++
 			}
-			if len(tc.expectedSetHeaders) > 0 {
+			if len(tt.expectedSetHeaders) > 0 {
 				expectedFilterCount++
 			}
 
@@ -560,7 +547,6 @@ func TestHeaderManipulationFeature(t *testing.T) {
 				t.Fatalf("Expected %d filters, got %d", expectedFilterCount, len(rule.Filters))
 			}
 
-			// Check filters
 			var responseHeaderFilter *gatewayv1.HTTPRouteFilter
 			var requestHeaderFilter *gatewayv1.HTTPRouteFilter
 
@@ -573,23 +559,21 @@ func TestHeaderManipulationFeature(t *testing.T) {
 				}
 			}
 
-			// Verify hide headers (ResponseHeaderModifier)
-			if len(tc.expectedHideHeaders) > 0 {
+			if len(tt.expectedHideHeaders) > 0 {
 				if responseHeaderFilter == nil {
 					t.Fatal("Expected ResponseHeaderModifier filter")
 				}
-				if len(responseHeaderFilter.ResponseHeaderModifier.Remove) != len(tc.expectedHideHeaders) {
-					t.Fatalf("Expected %d headers to remove, got %d", len(tc.expectedHideHeaders), len(responseHeaderFilter.ResponseHeaderModifier.Remove))
+				if len(responseHeaderFilter.ResponseHeaderModifier.Remove) != len(tt.expectedHideHeaders) {
+					t.Fatalf("Expected %d headers to remove, got %d", len(tt.expectedHideHeaders), len(responseHeaderFilter.ResponseHeaderModifier.Remove))
 				}
 			}
 
-			// Verify set headers (RequestHeaderModifier)
-			if len(tc.expectedSetHeaders) > 0 {
+			if len(tt.expectedSetHeaders) > 0 {
 				if requestHeaderFilter == nil {
 					t.Fatal("Expected RequestHeaderModifier filter")
 				}
-				if len(requestHeaderFilter.RequestHeaderModifier.Set) != len(tc.expectedSetHeaders) {
-					t.Fatalf("Expected %d headers to set, got %d", len(tc.expectedSetHeaders), len(requestHeaderFilter.RequestHeaderModifier.Set))
+				if len(requestHeaderFilter.RequestHeaderModifier.Set) != len(tt.expectedSetHeaders) {
+					t.Fatalf("Expected %d headers to set, got %d", len(tt.expectedSetHeaders), len(requestHeaderFilter.RequestHeaderModifier.Set))
 				}
 			}
 		})

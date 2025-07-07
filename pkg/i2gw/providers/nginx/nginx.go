@@ -18,8 +18,9 @@ package nginx
 
 import (
 	"context"
+
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	
+
 	"github.com/kubernetes-sigs/ingress2gateway/pkg/i2gw"
 	"github.com/kubernetes-sigs/ingress2gateway/pkg/i2gw/intermediate"
 	"github.com/kubernetes-sigs/ingress2gateway/pkg/i2gw/providers/common"
@@ -31,13 +32,13 @@ func init() {
 	i2gw.ProviderConstructorByName[Name] = NewProvider
 }
 
-// Provider implements the i2gw.Provider interface for nginx ingress controller
 type Provider struct {
 	*storage
 	*resourceReader
 	*resourcesToIRConverter
 }
 
+// NewProvider constructs and returns the nginx implementation of i2gw.Provider
 func NewProvider(conf *i2gw.ProviderConf) i2gw.Provider {
 	return &Provider{
 		resourceReader:         newResourceReader(conf),

@@ -21,6 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// notify dispatches a notification with the nginx provider name
 func notify(mType notifications.MessageType, message string, callingObject ...client.Object) {
 	newNotification := notifications.NewNotification(mType, message, callingObject...)
 	notifications.NotificationAggr.DispatchNotification(newNotification, string(Name))

@@ -28,15 +28,15 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-func TestPathRegexFeature(t *testing.T) {
-	testCases := []struct {
+func TestPathRegex(t *testing.T) {
+	tests := []struct {
 		name                string
 		annotations         map[string]string
 		expectedPathType    gatewayv1.PathMatchType
 		shouldModifyMatches bool
 	}{
 		{
-			name: "nginx.org/path-regex=true enables regex path matching",
+			name: "true enables regex",
 			annotations: map[string]string{
 				"nginx.org/path-regex": "true",
 			},
@@ -44,7 +44,7 @@ func TestPathRegexFeature(t *testing.T) {
 			shouldModifyMatches: true,
 		},
 		{
-			name: "nginx.org/path-regex=case_sensitive enables regex path matching",
+			name: "case_sensitive enables regex",
 			annotations: map[string]string{
 				"nginx.org/path-regex": "case_sensitive",
 			},
@@ -52,7 +52,7 @@ func TestPathRegexFeature(t *testing.T) {
 			shouldModifyMatches: true,
 		},
 		{
-			name: "nginx.org/path-regex=case_insensitive enables regex path matching",
+			name: "case_insensitive enables regex",
 			annotations: map[string]string{
 				"nginx.org/path-regex": "case_insensitive",
 			},
@@ -60,7 +60,7 @@ func TestPathRegexFeature(t *testing.T) {
 			shouldModifyMatches: true,
 		},
 		{
-			name: "nginx.org/path-regex=exact enables regex path matching",
+			name: "exact enables regex",
 			annotations: map[string]string{
 				"nginx.org/path-regex": "exact",
 			},
@@ -68,7 +68,7 @@ func TestPathRegexFeature(t *testing.T) {
 			shouldModifyMatches: true,
 		},
 		{
-			name: "nginx.org/path-regex=false does not enable regex matching",
+			name: "false disables regex",
 			annotations: map[string]string{
 				"nginx.org/path-regex": "false",
 			},
@@ -76,7 +76,7 @@ func TestPathRegexFeature(t *testing.T) {
 			shouldModifyMatches: false,
 		},
 		{
-			name: "missing nginx.org/path-regex annotation does not enable regex matching",
+			name: "missing annotation disables regex",
 			annotations: map[string]string{
 				"nginx.org/rewrites": "service=/api",
 			},
@@ -84,21 +84,20 @@ func TestPathRegexFeature(t *testing.T) {
 			shouldModifyMatches: false,
 		},
 		{
-			name:                "no annotations does not enable regex matching",
+			name:                "no annotations disables regex",
 			annotations:         map[string]string{},
 			expectedPathType:    gatewayv1.PathMatchPathPrefix,
 			shouldModifyMatches: false,
 		},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			// Setup Ingress
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			ingress := networkingv1.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "test-ingress",
 					Namespace:   "default",
-					Annotations: tc.annotations,
+					Annotations: tt.annotations,
 				},
 				Spec: networkingv1.IngressSpec{
 					Rules: []networkingv1.IngressRule{
@@ -124,7 +123,6 @@ func TestPathRegexFeature(t *testing.T) {
 				},
 			}
 
-			// Setup IR with initial HTTPRoute
 			ir := intermediate.IR{
 				HTTPRoutes: make(map[types.NamespacedName]intermediate.HTTPRouteContext),
 			}
@@ -169,13 +167,11 @@ func TestPathRegexFeature(t *testing.T) {
 				HTTPRoute: httpRoute,
 			}
 
-			// Execute pathRegexFeature
 			errs := PathRegexFeature([]networkingv1.Ingress{ingress}, nil, &ir)
 			if len(errs) > 0 {
 				t.Fatalf("Unexpected errors: %v", errs)
 			}
 
-			// Verify results
 			updatedRoute := ir.HTTPRoutes[routeKey]
 			if len(updatedRoute.HTTPRoute.Spec.Rules) == 0 || len(updatedRoute.HTTPRoute.Spec.Rules[0].Matches) == 0 {
 				t.Fatal("Expected HTTPRoute to have rules and matches")
@@ -187,11 +183,10 @@ func TestPathRegexFeature(t *testing.T) {
 			}
 
 			actualPathType := *match.Path.Type
-			if actualPathType != tc.expectedPathType {
-				t.Errorf("Expected path type %v, got %v", tc.expectedPathType, actualPathType)
+			if actualPathType != tt.expectedPathType {
+				t.Errorf("Expected path type %v, got %v", tt.expectedPathType, actualPathType)
 			}
 
-			// Verify that the path value remains unchanged
 			expectedPath := "/api/.*"
 			if *match.Path.Value != expectedPath {
 				t.Errorf("Expected path value %v, got %v", expectedPath, *match.Path.Value)
@@ -200,8 +195,7 @@ func TestPathRegexFeature(t *testing.T) {
 	}
 }
 
-func TestPathRegexFeatureMultipleMatches(t *testing.T) {
-	// Test with multiple path matches to ensure all are converted
+func TestPathRegexMultipleMatches(t *testing.T) {
 	ingress := networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-multi-paths",
@@ -243,7 +237,6 @@ func TestPathRegexFeatureMultipleMatches(t *testing.T) {
 		},
 	}
 
-	// Setup IR with HTTPRoute containing multiple matches
 	ir := intermediate.IR{
 		HTTPRoutes: make(map[types.NamespacedName]intermediate.HTTPRouteContext),
 	}
@@ -282,13 +275,11 @@ func TestPathRegexFeatureMultipleMatches(t *testing.T) {
 		HTTPRoute: httpRoute,
 	}
 
-	// Execute pathRegexFeature
 	errs := PathRegexFeature([]networkingv1.Ingress{ingress}, nil, &ir)
 	if len(errs) > 0 {
 		t.Fatalf("Unexpected errors: %v", errs)
 	}
 
-	// Verify all matches were converted to regex
 	updatedRoute := ir.HTTPRoutes[routeKey]
 	matches := updatedRoute.HTTPRoute.Spec.Rules[0].Matches
 

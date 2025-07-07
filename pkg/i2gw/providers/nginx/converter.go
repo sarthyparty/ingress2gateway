@@ -41,9 +41,7 @@ func newResourcesToIRConverter() *resourcesToIRConverter {
 			annotations.PathRegexFeature,
 			annotations.ListenPortsFeature,
 		},
-		implementationSpecificOptions: i2gw.ProviderImplementationSpecificOptions{
-			// TODO: Add nginx-specific implementation options
-		},
+		implementationSpecificOptions: i2gw.ProviderImplementationSpecificOptions{},
 	}
 }
 
@@ -53,15 +51,11 @@ func (c *resourcesToIRConverter) convert(storage *storage) (intermediate.IR, fie
 		ingressList = append(ingressList, *ingress)
 	}
 
-	// Convert standard Ingress resources to IR
 	ir, errorList := common.ToIR(ingressList, storage.ServicePorts, c.implementationSpecificOptions)
 	if len(errorList) > 0 {
 		return intermediate.IR{}, errorList
 	}
 
-	// VirtualServer support removed to reduce PR size
-
-	// Apply feature parsers for nginx-specific annotations
 	for _, parseFeatureFunc := range c.featureParsers {
 		errs := parseFeatureFunc(ingressList, storage.ServicePorts, &ir)
 		errorList = append(errorList, errs...)

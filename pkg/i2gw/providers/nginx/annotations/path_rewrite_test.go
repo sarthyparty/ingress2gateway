@@ -28,14 +28,14 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-func TestRewriteTargetFeature(t *testing.T) {
-	testCases := []struct {
+func TestRewriteTarget(t *testing.T) {
+	tests := []struct {
 		name           string
 		ingress        networkingv1.Ingress
 		expectedFilter *gatewayv1.HTTPRouteFilter
 	}{
 		{
-			name: "single service rewrite - simple format",
+			name: "simple format",
 			ingress: networkingv1.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-ingress",
@@ -78,7 +78,7 @@ func TestRewriteTargetFeature(t *testing.T) {
 			},
 		},
 		{
-			name: "single service rewrite - NIC format",
+			name: "NIC format",
 			ingress: networkingv1.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-ingress-nic",
@@ -122,20 +122,19 @@ func TestRewriteTargetFeature(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			// Setup IR with initial HTTPRoute
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			ir := intermediate.IR{
 				HTTPRoutes: make(map[types.NamespacedName]intermediate.HTTPRouteContext),
 			}
 
-			routeName := common.RouteName(tc.ingress.Name, tc.ingress.Spec.Rules[0].Host)
-			routeKey := types.NamespacedName{Namespace: tc.ingress.Namespace, Name: routeName}
+			routeName := common.RouteName(tt.ingress.Name, tt.ingress.Spec.Rules[0].Host)
+			routeKey := types.NamespacedName{Namespace: tt.ingress.Namespace, Name: routeName}
 			
 			httpRoute := gatewayv1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      routeName,
-					Namespace: tc.ingress.Namespace,
+					Namespace: tt.ingress.Namespace,
 				},
 				Spec: gatewayv1.HTTPRouteSpec{
 					Rules: []gatewayv1.HTTPRouteRule{
@@ -157,30 +156,28 @@ func TestRewriteTargetFeature(t *testing.T) {
 				HTTPRoute: httpRoute,
 			}
 
-			// Execute feature parser
-			errs := RewriteTargetFeature([]networkingv1.Ingress{tc.ingress}, nil, &ir)
+			errs := RewriteTargetFeature([]networkingv1.Ingress{tt.ingress}, nil, &ir)
 			if len(errs) > 0 {
 				t.Fatalf("Unexpected errors: %v", errs)
 			}
 
-			// Verify filter was added
 			updatedRoute := ir.HTTPRoutes[routeKey]
 			if len(updatedRoute.HTTPRoute.Spec.Rules) == 0 || len(updatedRoute.HTTPRoute.Spec.Rules[0].Filters) == 0 {
 				t.Fatal("Expected filter to be added to HTTPRoute")
 			}
 
 			filter := updatedRoute.HTTPRoute.Spec.Rules[0].Filters[0]
-			if filter.Type != tc.expectedFilter.Type {
-				t.Errorf("Expected filter type %v, got %v", tc.expectedFilter.Type, filter.Type)
+			if filter.Type != tt.expectedFilter.Type {
+				t.Errorf("Expected filter type %v, got %v", tt.expectedFilter.Type, filter.Type)
 			}
 
 			if filter.URLRewrite == nil || filter.URLRewrite.Path == nil {
 				t.Fatal("Expected URLRewrite filter with Path modifier")
 			}
 
-			if *filter.URLRewrite.Path.ReplacePrefixMatch != *tc.expectedFilter.URLRewrite.Path.ReplacePrefixMatch {
+			if *filter.URLRewrite.Path.ReplacePrefixMatch != *tt.expectedFilter.URLRewrite.Path.ReplacePrefixMatch {
 				t.Errorf("Expected rewrite path %v, got %v", 
-					*tc.expectedFilter.URLRewrite.Path.ReplacePrefixMatch,
+					*tt.expectedFilter.URLRewrite.Path.ReplacePrefixMatch,
 					*filter.URLRewrite.Path.ReplacePrefixMatch)
 			}
 		})
@@ -188,10 +185,10 @@ func TestRewriteTargetFeature(t *testing.T) {
 }
 
 func TestParseRewriteRules(t *testing.T) {
-	testCases := []struct {
-		name           string
-		input          string
-		expectedRules  map[string]string
+	tests := []struct {
+		name          string
+		input         string
+		expectedRules map[string]string
 	}{
 		{
 			name:  "single rule",
@@ -229,14 +226,14 @@ func TestParseRewriteRules(t *testing.T) {
 			expectedRules: map[string]string{},
 		},
 		{
-			name:  "NIC format single rule",
+			name:  "NIC format single",
 			input: "serviceName=coffee rewrite=/coffee",
 			expectedRules: map[string]string{
 				"coffee": "/coffee",
 			},
 		},
 		{
-			name:  "NIC format multiple rules",
+			name:  "NIC format multiple",
 			input: "serviceName=coffee rewrite=/coffee,serviceName=tea rewrite=/tea",
 			expectedRules: map[string]string{
 				"coffee": "/coffee",
@@ -244,7 +241,7 @@ func TestParseRewriteRules(t *testing.T) {
 			},
 		},
 		{
-			name:  "mixed format - simple and NIC",
+			name:  "mixed format",
 			input: "web-service=/api/v1,serviceName=coffee rewrite=/coffee",
 			expectedRules: map[string]string{
 				"web-service": "/api/v1",
@@ -260,7 +257,7 @@ func TestParseRewriteRules(t *testing.T) {
 			},
 		},
 		{
-			name:  "NIC format with complex paths",
+			name:  "NIC format complex paths",
 			input: "serviceName=api-service rewrite=/api/v2/users",
 			expectedRules: map[string]string{
 				"api-service": "/api/v2/users",
@@ -268,15 +265,15 @@ func TestParseRewriteRules(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			result := parseRewriteRules(tc.input)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := parseRewriteRules(tt.input)
 			
-			if len(result) != len(tc.expectedRules) {
-				t.Errorf("Expected %d rules, got %d", len(tc.expectedRules), len(result))
+			if len(result) != len(tt.expectedRules) {
+				t.Errorf("Expected %d rules, got %d", len(tt.expectedRules), len(result))
 			}
 
-			for expectedService, expectedPath := range tc.expectedRules {
+			for expectedService, expectedPath := range tt.expectedRules {
 				if actualPath, exists := result[expectedService]; !exists {
 					t.Errorf("Expected service %s not found in result", expectedService)
 				} else if actualPath != expectedPath {

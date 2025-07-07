@@ -56,7 +56,6 @@ func HeaderManipulationFeature(ingresses []networkingv1.Ingress, servicePorts ma
 func addFilterToIngressRoutes(ingress networkingv1.Ingress, filter gatewayv1.HTTPRouteFilter, ir *intermediate.IR) field.ErrorList {
 	var errs field.ErrorList
 
-	// Apply to all routes for this ingress
 	for _, rule := range ingress.Spec.Rules {
 		if rule.HTTP == nil {
 			continue
@@ -70,7 +69,6 @@ func addFilterToIngressRoutes(ingress networkingv1.Ingress, filter gatewayv1.HTT
 			continue
 		}
 
-		// Add filter to first rule (could be enhanced to apply to specific paths)
 		if len(httpRouteContext.HTTPRoute.Spec.Rules) > 0 {
 			if httpRouteContext.HTTPRoute.Spec.Rules[0].Filters == nil {
 				httpRouteContext.HTTPRoute.Spec.Rules[0].Filters = []gatewayv1.HTTPRouteFilter{}
@@ -106,10 +104,8 @@ func createRequestHeaderModifier(setHeaders string) *gatewayv1.HTTPRouteFilter {
 		return nil
 	}
 
-	// Create RequestHeaderModifier filter to set headers
 	var headersToSet []gatewayv1.HTTPHeader
 	for name, value := range headers {
-		// Skip headers with NGINX variables or empty values for Gateway API compatibility
 		if value != "" && !strings.Contains(value, "$") {
 			headersToSet = append(headersToSet, gatewayv1.HTTPHeader{
 				Name:  gatewayv1.HTTPHeaderName(name),
@@ -159,7 +155,6 @@ func parseSetHeaders(setHeaders string) map[string]string {
 		return headers
 	}
 
-	// Split by comma for multiple headers
 	parts := strings.Split(setHeaders, ",")
 
 	for _, part := range parts {
@@ -168,7 +163,6 @@ func parseSetHeaders(setHeaders string) map[string]string {
 			continue
 		}
 
-		// Check if this has a custom value (contains ":")
 		if strings.Contains(part, ":") {
 			// Format: "Header-Name: value"
 			kv := strings.SplitN(part, ":", 2)

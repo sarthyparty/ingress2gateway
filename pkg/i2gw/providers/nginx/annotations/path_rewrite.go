@@ -28,7 +28,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-// rewriteTargetFeature converts nginx.org/rewrites annotation to URLRewrite filter
+// RewriteTargetFeature converts nginx.org/rewrites annotation to URLRewrite filter
 func RewriteTargetFeature(ingresses []networkingv1.Ingress, servicePorts map[types.NamespacedName]map[string]int32, ir *intermediate.IR) field.ErrorList {
 	var errs field.ErrorList
 
@@ -38,13 +38,11 @@ func RewriteTargetFeature(ingresses []networkingv1.Ingress, servicePorts map[typ
 			continue
 		}
 
-		// Parse nginx.org/rewrites format: "serviceName=rewritePath[,serviceName2=rewritePath2]"
 		rewriteRules := parseRewriteRules(rewriteValue)
 		if len(rewriteRules) == 0 {
 			continue
 		}
 
-		// Apply rewrite rules to corresponding HTTPRoutes
 		for _, rule := range ingress.Spec.Rules {
 			if rule.HTTP == nil {
 				continue
@@ -58,12 +56,10 @@ func RewriteTargetFeature(ingresses []networkingv1.Ingress, servicePorts map[typ
 				continue
 			}
 
-			// Apply rewrite filters to matching paths
 			for i := range httpRouteContext.HTTPRoute.Spec.Rules {
 				for _, path := range rule.HTTP.Paths {
 					serviceName := path.Backend.Service.Name
 					if rewritePath, hasRewrite := rewriteRules[serviceName]; hasRewrite {
-						// Add URLRewrite filter with prefix replacement for sub-path preservation
 						filter := gatewayv1.HTTPRouteFilter{
 							Type: gatewayv1.HTTPRouteFilterURLRewrite,
 							URLRewrite: &gatewayv1.HTTPURLRewriteFilter{
@@ -78,9 +74,6 @@ func RewriteTargetFeature(ingresses []networkingv1.Ingress, servicePorts map[typ
 							httpRouteContext.HTTPRoute.Spec.Rules[i].Filters = []gatewayv1.HTTPRouteFilter{}
 						}
 						httpRouteContext.HTTPRoute.Spec.Rules[i].Filters = append(httpRouteContext.HTTPRoute.Spec.Rules[i].Filters, filter)
-
-						// Note: Using a simple notification approach since AddNotification may not be available
-						// TODO: Use proper notification system when available
 					}
 				}
 			}
@@ -103,7 +96,6 @@ func parseRewriteRules(rewriteValue string) map[string]string {
 		return rules
 	}
 
-	// Split by comma for multiple rules
 	parts := strings.Split(rewriteValue, ",")
 
 	for _, part := range parts {
@@ -112,10 +104,7 @@ func parseRewriteRules(rewriteValue string) map[string]string {
 			continue
 		}
 
-		// Check if this is NIC format with "rewrite=" keyword
 		if strings.Contains(part, " rewrite=") {
-			// NIC format: "serviceName=service rewrite=path"
-			// Split on the first equals sign
 			mainParts := strings.SplitN(part, "=", 2)
 			if len(mainParts) != 2 {
 				continue
@@ -123,21 +112,18 @@ func parseRewriteRules(rewriteValue string) map[string]string {
 
 			remaining := strings.TrimSpace(mainParts[1])
 
-			// Find " rewrite=" pattern
 			rewriteIndex := strings.Index(remaining, " rewrite=")
 			if rewriteIndex == -1 {
 				continue
 			}
 
-			// Extract the service name (before " rewrite=") and rewrite path (after " rewrite=")
 			serviceName := strings.TrimSpace(remaining[:rewriteIndex])
-			rewritePath := strings.TrimSpace(remaining[rewriteIndex+9:]) // len(" rewrite=") = 9
+			rewritePath := strings.TrimSpace(remaining[rewriteIndex+9:])
 
 			if serviceName != "" && rewritePath != "" {
 				rules[serviceName] = rewritePath
 			}
 		} else {
-			// Simple format: "serviceName=rewritePath"
 			kv := strings.SplitN(part, "=", 2)
 			if len(kv) != 2 {
 				continue

@@ -29,7 +29,7 @@ import (
 )
 
 func TestExtractListenPorts(t *testing.T) {
-	testCases := []struct {
+	tests := []struct {
 		name        string
 		annotation  string
 		expected    []int32
@@ -55,34 +55,34 @@ func TestExtractListenPorts(t *testing.T) {
 			expected:    []int32{8080, 9090, 3000},
 		},
 		{
-			name:        "invalid ports filtered out",
+			name:        "invalid ports filtered",
 			annotation:  "8080,invalid,9090,0,65536",
 			expected:    []int32{8080, 9090},
 		},
 		{
-			name:        "empty parts filtered out",
+			name:        "empty parts filtered",
 			annotation:  "8080,,9090,",
 			expected:    []int32{8080, 9090},
 		},
 		{
-			name:        "edge case - port 1 and 65535",
+			name:        "edge ports",
 			annotation:  "1,65535",
 			expected:    []int32{1, 65535},
 		},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			result := extractListenPorts(tc.annotation)
-			if !reflect.DeepEqual(result, tc.expected) {
-				t.Errorf("Expected %v, got %v", tc.expected, result)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := extractListenPorts(tt.annotation)
+			if !reflect.DeepEqual(result, tt.expected) {
+				t.Errorf("Expected %v, got %v", tt.expected, result)
 			}
 		})
 	}
 }
 
 func TestCreateListenerName(t *testing.T) {
-	testCases := []struct {
+	tests := []struct {
 		name        string
 		hostname    string
 		port        int32
@@ -119,18 +119,18 @@ func TestCreateListenerName(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			result := createListenerName(tc.hostname, tc.port, tc.protocol)
-			if result != tc.expected {
-				t.Errorf("Expected %s, got %s", tc.expected, result)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := createListenerName(tt.hostname, tt.port, tt.protocol)
+			if result != tt.expected {
+				t.Errorf("Expected %s, got %s", tt.expected, result)
 			}
 		})
 	}
 }
 
 func TestCreateListener(t *testing.T) {
-	testCases := []struct {
+	tests := []struct {
 		name        string
 		hostname    string
 		port        int32
@@ -138,7 +138,7 @@ func TestCreateListener(t *testing.T) {
 		expected    gatewayv1.Listener
 	}{
 		{
-			name:        "HTTP listener with hostname",
+			name:        "HTTP with hostname",
 			hostname:    "example.com",
 			port:        8080,
 			protocol:    gatewayv1.HTTPProtocolType,
@@ -150,7 +150,7 @@ func TestCreateListener(t *testing.T) {
 			},
 		},
 		{
-			name:        "HTTPS listener with hostname",
+			name:        "HTTPS with hostname",
 			hostname:    "secure.example.com",
 			port:        8443,
 			protocol:    gatewayv1.HTTPSProtocolType,
@@ -162,7 +162,7 @@ func TestCreateListener(t *testing.T) {
 			},
 		},
 		{
-			name:        "listener without hostname",
+			name:        "without hostname",
 			hostname:    "",
 			port:        9090,
 			protocol:    gatewayv1.HTTPProtocolType,
@@ -175,18 +175,18 @@ func TestCreateListener(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			result := createListener(tc.hostname, tc.port, tc.protocol)
-			if !reflect.DeepEqual(result, tc.expected) {
-				t.Errorf("Expected %+v, got %+v", tc.expected, result)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := createListener(tt.hostname, tt.port, tt.protocol)
+			if !reflect.DeepEqual(result, tt.expected) {
+				t.Errorf("Expected %+v, got %+v", tt.expected, result)
 			}
 		})
 	}
 }
 
 func TestListenPortsFeature(t *testing.T) {
-	testCases := []struct {
+	tests := []struct {
 		name              string
 		annotations       map[string]string
 		expectedListeners int
@@ -194,32 +194,32 @@ func TestListenPortsFeature(t *testing.T) {
 		expectedSSLPorts  []int32
 	}{
 		{
-			name:              "no custom ports - should not modify gateway",
+			name:              "no custom ports",
 			annotations:       map[string]string{},
 			expectedListeners: 0,
 			expectedHTTPPorts: nil,
 			expectedSSLPorts:  nil,
 		},
 		{
-			name: "custom HTTP ports only - replaces default HTTP, no HTTPS",
+			name: "custom HTTP ports only",
 			annotations: map[string]string{
 				nginxListenPortsAnnotation: "8080,9090",
 			},
 			expectedListeners: 2,
 			expectedHTTPPorts: []int32{8080, 9090},
-			expectedSSLPorts:  nil, // No HTTPS listeners when only HTTP annotation present
+			expectedSSLPorts:  nil,
 		},
 		{
-			name: "custom SSL ports only - replaces default HTTPS, no HTTP",
+			name: "custom SSL ports only",
 			annotations: map[string]string{
 				nginxListenPortsSSLAnnotation: "8443,9443",
 			},
 			expectedListeners: 2,
-			expectedHTTPPorts: nil, // No HTTP listeners when only SSL annotation present
+			expectedHTTPPorts: nil,
 			expectedSSLPorts:  []int32{8443, 9443},
 		},
 		{
-			name: "both HTTP and SSL custom ports - replaces both defaults",
+			name: "both HTTP and SSL",
 			annotations: map[string]string{
 				nginxListenPortsAnnotation:    "8080,9090",
 				nginxListenPortsSSLAnnotation: "8443,9443",
@@ -230,14 +230,13 @@ func TestListenPortsFeature(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			// Setup Ingress
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			ingress := networkingv1.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "test-ingress",
 					Namespace:   "default",
-					Annotations: tc.annotations,
+					Annotations: tt.annotations,
 				},
 				Spec: networkingv1.IngressSpec{
 					IngressClassName: ptr.To("nginx"),
@@ -264,51 +263,43 @@ func TestListenPortsFeature(t *testing.T) {
 				},
 			}
 
-			// Setup IR
 			ir := intermediate.IR{
 				Gateways:   make(map[types.NamespacedName]intermediate.GatewayContext),
 				HTTPRoutes: make(map[types.NamespacedName]intermediate.HTTPRouteContext),
 			}
 
-			// Execute feature parser
 			errs := ListenPortsFeature([]networkingv1.Ingress{ingress}, nil, &ir)
 			if len(errs) > 0 {
 				t.Fatalf("Unexpected errors: %v", errs)
 			}
 
-			// Verify results
-			if tc.expectedListeners == 0 {
-				// Should not create any gateway if no custom ports
+			if tt.expectedListeners == 0 {
 				if len(ir.Gateways) > 0 {
 					t.Error("Expected no gateways to be created")
 				}
 				return
 			}
 
-			// Should create exactly one gateway
 			if len(ir.Gateways) != 1 {
 				t.Fatalf("Expected 1 gateway, got %d", len(ir.Gateways))
 			}
 
-			// Get the created gateway
 			var gateway gatewayv1.Gateway
 			for _, gwContext := range ir.Gateways {
 				gateway = gwContext.Gateway
 				break
 			}
 
-			// Verify listener count
-			if len(gateway.Spec.Listeners) != tc.expectedListeners {
-				t.Fatalf("Expected %d listeners, got %d", tc.expectedListeners, len(gateway.Spec.Listeners))
+			if len(gateway.Spec.Listeners) != tt.expectedListeners {
+				t.Fatalf("Expected %d listeners, got %d", tt.expectedListeners, len(gateway.Spec.Listeners))
 			}
 
-			// Verify HTTP ports
 			httpCount := 0
 			for _, listener := range gateway.Spec.Listeners {
 				if listener.Protocol == gatewayv1.HTTPProtocolType {
 					httpCount++
 					found := false
-					for _, expectedPort := range tc.expectedHTTPPorts {
+					for _, expectedPort := range tt.expectedHTTPPorts {
 						if int32(listener.Port) == expectedPort {
 							found = true
 							break
@@ -320,17 +311,16 @@ func TestListenPortsFeature(t *testing.T) {
 				}
 			}
 
-			if httpCount != len(tc.expectedHTTPPorts) {
-				t.Errorf("Expected %d HTTP listeners, got %d", len(tc.expectedHTTPPorts), httpCount)
+			if httpCount != len(tt.expectedHTTPPorts) {
+				t.Errorf("Expected %d HTTP listeners, got %d", len(tt.expectedHTTPPorts), httpCount)
 			}
 
-			// Verify SSL ports
 			sslCount := 0
 			for _, listener := range gateway.Spec.Listeners {
 				if listener.Protocol == gatewayv1.HTTPSProtocolType {
 					sslCount++
 					found := false
-					for _, expectedPort := range tc.expectedSSLPorts {
+					for _, expectedPort := range tt.expectedSSLPorts {
 						if int32(listener.Port) == expectedPort {
 							found = true
 							break
@@ -342,11 +332,10 @@ func TestListenPortsFeature(t *testing.T) {
 				}
 			}
 
-			if sslCount != len(tc.expectedSSLPorts) {
-				t.Errorf("Expected %d HTTPS listeners, got %d", len(tc.expectedSSLPorts), sslCount)
+			if sslCount != len(tt.expectedSSLPorts) {
+				t.Errorf("Expected %d HTTPS listeners, got %d", len(tt.expectedSSLPorts), sslCount)
 			}
 
-			// Verify all listeners have correct hostname
 			for _, listener := range gateway.Spec.Listeners {
 				if listener.Hostname == nil || string(*listener.Hostname) != "example.com" {
 					t.Errorf("Expected hostname 'example.com', got %v", listener.Hostname)
@@ -357,7 +346,7 @@ func TestListenPortsFeature(t *testing.T) {
 }
 
 func TestDeterminePortsToUse(t *testing.T) {
-	testCases := []struct {
+	tests := []struct {
 		name                 string
 		customHTTPPorts      []int32
 		customSSLPorts       []int32
@@ -367,7 +356,7 @@ func TestDeterminePortsToUse(t *testing.T) {
 		expectedHTTPSPorts   []int32
 	}{
 		{
-			name:                 "no annotations - use defaults",
+			name:                 "no annotations",
 			customHTTPPorts:      nil,
 			customSSLPorts:       nil,
 			hasHTTPAnnotation:    false,
@@ -376,7 +365,7 @@ func TestDeterminePortsToUse(t *testing.T) {
 			expectedHTTPSPorts:   []int32{443},
 		},
 		{
-			name:                 "HTTP annotation only - replace default HTTP, no HTTPS",
+			name:                 "HTTP annotation only",
 			customHTTPPorts:      []int32{8080, 9090},
 			customSSLPorts:       nil,
 			hasHTTPAnnotation:    true,
@@ -385,7 +374,7 @@ func TestDeterminePortsToUse(t *testing.T) {
 			expectedHTTPSPorts:   nil,
 		},
 		{
-			name:                 "SSL annotation only - replace default HTTPS, no HTTP",
+			name:                 "SSL annotation only",
 			customHTTPPorts:      nil,
 			customSSLPorts:       []int32{8443, 9443},
 			hasHTTPAnnotation:    false,
@@ -394,7 +383,7 @@ func TestDeterminePortsToUse(t *testing.T) {
 			expectedHTTPSPorts:   []int32{8443, 9443},
 		},
 		{
-			name:                 "both annotations - replace both defaults",
+			name:                 "both annotations",
 			customHTTPPorts:      []int32{8080},
 			customSSLPorts:       []int32{8443},
 			hasHTTPAnnotation:    true,
@@ -403,7 +392,7 @@ func TestDeterminePortsToUse(t *testing.T) {
 			expectedHTTPSPorts:   []int32{8443},
 		},
 		{
-			name:                 "empty HTTP ports with annotation - no HTTP listeners",
+			name:                 "empty HTTP ports",
 			customHTTPPorts:      []int32{},
 			customSSLPorts:       nil,
 			hasHTTPAnnotation:    true,
@@ -412,7 +401,7 @@ func TestDeterminePortsToUse(t *testing.T) {
 			expectedHTTPSPorts:   nil,
 		},
 		{
-			name:                 "empty SSL ports with annotation - no HTTPS listeners", 
+			name:                 "empty SSL ports",
 			customHTTPPorts:      nil,
 			customSSLPorts:       []int32{},
 			hasHTTPAnnotation:    false,
@@ -422,16 +411,16 @@ func TestDeterminePortsToUse(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			result := determinePortsToUse(tc.customHTTPPorts, tc.customSSLPorts, tc.hasHTTPAnnotation, tc.hasSSLAnnotation)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := determinePortsToUse(tt.customHTTPPorts, tt.customSSLPorts, tt.hasHTTPAnnotation, tt.hasSSLAnnotation)
 
-			if !reflect.DeepEqual(result.HTTP, tc.expectedHTTPPorts) {
-				t.Errorf("Expected HTTP ports %v, got %v", tc.expectedHTTPPorts, result.HTTP)
+			if !reflect.DeepEqual(result.HTTP, tt.expectedHTTPPorts) {
+				t.Errorf("Expected HTTP ports %v, got %v", tt.expectedHTTPPorts, result.HTTP)
 			}
 
-			if !reflect.DeepEqual(result.HTTPS, tc.expectedHTTPSPorts) {
-				t.Errorf("Expected HTTPS ports %v, got %v", tc.expectedHTTPSPorts, result.HTTPS)
+			if !reflect.DeepEqual(result.HTTPS, tt.expectedHTTPSPorts) {
+				t.Errorf("Expected HTTPS ports %v, got %v", tt.expectedHTTPSPorts, result.HTTPS)
 			}
 		})
 	}

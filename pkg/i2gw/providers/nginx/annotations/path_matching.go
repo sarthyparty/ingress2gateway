@@ -36,10 +36,8 @@ func PathRegexFeature(ingresses []networkingv1.Ingress, servicePorts map[types.N
 			continue
 		}
 		
-		// NIC supports: "case_sensitive", "case_insensitive", "exact"
-		// Any of these values should enable regex path matching
 		validValues := map[string]bool{
-			"true":            true, // Legacy value for compatibility
+			"true":            true,
 			"case_sensitive":  true,
 			"case_insensitive": true,
 			"exact":           true,
@@ -49,7 +47,6 @@ func PathRegexFeature(ingresses []networkingv1.Ingress, servicePorts map[types.N
 			continue
 		}
 
-		// Apply regex path matching to HTTPRoutes
 		for _, rule := range ingress.Spec.Rules {
 			if rule.HTTP == nil {
 				continue
@@ -63,7 +60,6 @@ func PathRegexFeature(ingresses []networkingv1.Ingress, servicePorts map[types.N
 				continue
 			}
 
-			// Update path match type to RegularExpression for all matches
 			for i := range httpRouteContext.HTTPRoute.Spec.Rules {
 				for j := range httpRouteContext.HTTPRoute.Spec.Rules[i].Matches {
 					match := &httpRouteContext.HTTPRoute.Spec.Rules[i].Matches[j]
