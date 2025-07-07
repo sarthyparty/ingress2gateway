@@ -16,7 +16,6 @@ limitations under the License.
 
 package annotations
 
-import "k8s.io/apimachinery/pkg/runtime/schema"
 
 const (
 	// NGINX Ingress Controller annotation prefixes
@@ -27,7 +26,7 @@ const (
 	nginxRewritesAnnotation        = nginxOrgPrefix + "rewrites"
 	nginxRedirectToHTTPSAnnotation = nginxOrgPrefix + "redirect-to-https"
 	nginxLBMethodAnnotation        = nginxOrgPrefix + "lb-method"
-	nginxServerAliasAnnotation     = nginxOrgPrefix + "server-alias"
+	// nginxServerAliasAnnotation removed - unfinished implementation
 
 	// Header manipulation annotations
 	nginxProxyHideHeadersAnnotation = nginxOrgPrefix + "proxy-hide-headers"
@@ -45,27 +44,14 @@ const (
 	// Path matching annotations
 	nginxPathRegexAnnotation = nginxOrgPrefix + "path-regex"
 
-	// Security annotations
-	nginxHSTSAnnotation                  = nginxOrgPrefix + "hsts"
-	nginxHSTSMaxAgeAnnotation            = nginxOrgPrefix + "hsts-max-age"
-	nginxHSTSIncludeSubdomainsAnnotation = nginxOrgPrefix + "hsts-include-subdomains"
-	nginxBasicAuthSecretAnnotation       = nginxOrgPrefix + "basic-auth-secret"
-	nginxBasicAuthRealmAnnotation        = nginxOrgPrefix + "basic-auth-realm"
+	// Security annotations removed - unfinished implementations
+	// nginxHSTSAnnotation, nginxHSTSMaxAgeAnnotation, nginxHSTSIncludeSubdomainsAnnotation
+	// nginxBasicAuthSecretAnnotation, nginxBasicAuthRealmAnnotation
 
 	// Legacy SSL redirect annotation
 	legacySSLRedirectAnnotation = "ingress.kubernetes.io/ssl-redirect"
 
-	v1Version = "v1"
-
-	nginxResourcesGroup = "k8s.nginx.org"
-
-	virtualServerKind = "VirtualServer"
+	// VirtualServer constants removed - support removed to reduce PR size
 )
 
-var (
-	VirtualServerGVK = schema.GroupVersionKind{
-		Group:   nginxResourcesGroup,
-		Version: v1Version,
-		Kind:    virtualServerKind,
-	}
-)
+// VirtualServerGVK removed - support removed to reduce PR size

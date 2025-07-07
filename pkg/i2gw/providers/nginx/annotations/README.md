@@ -10,8 +10,8 @@ This directory contains the implementation of NGINX-specific Ingress annotations
 - **`listen_ports.go`** - Custom port listeners (`listen-ports`, `listen-ports-ssl`)
 - **`path_matching.go`** - Path regex matching (`path-regex`)
 - **`path_rewrite.go`** - URL rewriting (`rewrites`)
-- **`security.go`** - Security features (`hsts`, `basic-auth-secret`)
-- **`server_alias.go`** - Server hostname aliases (`server-alias`)
+- **`security.go`** - REMOVED: Unfinished security features (HSTS, basic auth)
+- **`server_alias.go`** - REMOVED: Unfinished server alias implementation
 - **`ssl_redirect.go`** - SSL/HTTPS redirects (`redirect-to-https`)
 
 ## Exported Functions
@@ -23,8 +23,8 @@ Each annotation file exports a main feature function:
 - `ListenPortsFeature` - Processes custom port listener annotations
 - `PathRegexFeature` - Processes path regex annotations
 - `RewriteTargetFeature` - Processes URL rewrite annotations
-- `SecurityFeature` - Processes security-related annotations
-- `ServerAliasFeature` - Processes server alias annotations
+- `SecurityFeature` - REMOVED: Unfinished implementation
+- `ServerAliasFeature` - REMOVED: Unfinished implementation
 - `SSLRedirectFeature` - Processes SSL redirect annotations
 
 ## Testing

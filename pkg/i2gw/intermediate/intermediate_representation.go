@@ -61,7 +61,6 @@ type ProviderSpecificGatewayIR struct {
 	Istio        *IstioGatewayIR
 	Kong         *KongGatewayIR
 	Openapi3     *Openapi3GatewayIR
-	Nginx        *NginxGatewayIR
 }
 
 // HTTPRouteContext contains the Gateway-API HTTPRoute object and HTTPRouteIR,
@@ -82,7 +81,6 @@ type ProviderSpecificHTTPRouteIR struct {
 	Istio        *IstioHTTPRouteIR
 	Kong         *KongHTTPRouteIR
 	Openapi3     *Openapi3HTTPRouteIR
-	Nginx        *NginxHTTPRouteIR
 }
 
 // ServiceIR contains a dedicated field for each provider to specify their

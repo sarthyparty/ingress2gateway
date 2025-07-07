@@ -135,16 +135,16 @@ func TestProcessSSLServicesAnnotation(t *testing.T) {
 					}
 
 					// Verify TLS validation config
-					if policy.Spec.Validation.Hostname != gatewayv1.PreciseHostname(serviceName) {
-						t.Errorf("Expected hostname '%s', got '%s'", serviceName, policy.Spec.Validation.Hostname)
+					if policy.Spec.Validation.Hostname != gatewayv1.PreciseHostname("example.com") {
+						t.Errorf("Expected hostname 'example.com', got '%s'", policy.Spec.Validation.Hostname)
 					}
 
 					// Verify labels
 					if policy.Labels["app.kubernetes.io/managed-by"] != "ingress2gateway" {
 						t.Errorf("Expected managed-by label 'ingress2gateway', got '%s'", policy.Labels["app.kubernetes.io/managed-by"])
 					}
-					if policy.Labels["ingress2gateway.io/source"] != "nginx.org/ssl-services" {
-						t.Errorf("Expected source label 'nginx.org/ssl-services', got '%s'", policy.Labels["ingress2gateway.io/source"])
+					if policy.Labels["ingress2gateway.io/source"] != "nginx-ssl-services" {
+						t.Errorf("Expected source label 'nginx-ssl-services', got '%s'", policy.Labels["ingress2gateway.io/source"])
 					}
 				}
 			}

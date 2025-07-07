@@ -20,19 +20,18 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/types"
 	
-	nginxv1 "github.com/nginxinc/kubernetes-ingress/pkg/apis/configuration/v1"
 )
 
 type storage struct {
-	Ingresses      map[types.NamespacedName]*networkingv1.Ingress
-	VirtualServers []nginxv1.VirtualServer
-	ServicePorts   map[types.NamespacedName]map[string]int32
+	Ingresses    map[types.NamespacedName]*networkingv1.Ingress
+	ServicePorts map[types.NamespacedName]map[string]int32
+	// VirtualServers field removed to reduce PR size
 }
 
 func newResourceStorage() *storage {
 	return &storage{
-		Ingresses:      map[types.NamespacedName]*networkingv1.Ingress{},
-		VirtualServers: []nginxv1.VirtualServer{},
-		ServicePorts:   map[types.NamespacedName]map[string]int32{},
+		Ingresses:    map[types.NamespacedName]*networkingv1.Ingress{},
+		ServicePorts: map[types.NamespacedName]map[string]int32{},
+		// VirtualServers field removed to reduce PR size
 	}
 }

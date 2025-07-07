@@ -24,7 +24,6 @@ import (
 	"github.com/kubernetes-sigs/ingress2gateway/pkg/i2gw/intermediate"
 	"github.com/kubernetes-sigs/ingress2gateway/pkg/i2gw/providers/common"
 	"github.com/kubernetes-sigs/ingress2gateway/pkg/i2gw/providers/nginx/annotations"
-	"github.com/kubernetes-sigs/ingress2gateway/pkg/i2gw/providers/nginx/crds"
 )
 
 type resourcesToIRConverter struct {
@@ -37,11 +36,9 @@ func newResourcesToIRConverter() *resourcesToIRConverter {
 		featureParsers: []i2gw.FeatureParser{
 			annotations.RewriteTargetFeature,
 			annotations.SSLRedirectFeature,
-			annotations.ServerAliasFeature,
 			annotations.HeaderManipulationFeature,
 			annotations.BackendProtocolFeature,
 			annotations.PathRegexFeature,
-			annotations.SecurityFeature,
 			annotations.ListenPortsFeature,
 		},
 		implementationSpecificOptions: i2gw.ProviderImplementationSpecificOptions{
@@ -62,25 +59,11 @@ func (c *resourcesToIRConverter) convert(storage *storage) (intermediate.IR, fie
 		return intermediate.IR{}, errorList
 	}
 
-	// Convert VirtualServer CRDs to IR
-	virtualServerIR, _, errs := crds.VirtualServerToGatewayIR(storage.VirtualServers)
-	if len(errs) > 0 {
-		errorList = append(errorList, errs...)
-	}
-
-	if len(errorList) > 0 {
-		return intermediate.IR{}, errorList
-	}
-
-	// Merge IRs
-	ir, errs = intermediate.MergeIRs(ir, virtualServerIR)
-	if len(errs) > 0 {
-		return intermediate.IR{}, errs
-	}
+	// VirtualServer support removed to reduce PR size
 
 	// Apply feature parsers for nginx-specific annotations
 	for _, parseFeatureFunc := range c.featureParsers {
-		errs = parseFeatureFunc(ingressList, storage.ServicePorts, &ir)
+		errs := parseFeatureFunc(ingressList, storage.ServicePorts, &ir)
 		errorList = append(errorList, errs...)
 	}
 

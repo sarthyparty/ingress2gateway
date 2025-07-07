@@ -167,12 +167,12 @@ type portConfiguration struct {
 func determinePortsToUse(customHTTPPorts, customSSLPorts []int32, hasHTTPAnnotation, hasSSLAnnotation bool) portConfiguration {
 	config := portConfiguration{}
 
-	if hasHTTPAnnotation && len(customHTTPPorts) > 0 {
+	if hasHTTPAnnotation {
 		config.HTTP = customHTTPPorts
 	} else if !hasSSLAnnotation {
 		config.HTTP = []int32{80}
 	}
-	if hasSSLAnnotation && len(customSSLPorts) > 0 {
+	if hasSSLAnnotation {
 		config.HTTPS = customSSLPorts
 	} else if !hasHTTPAnnotation {
 		config.HTTPS = []int32{443}
