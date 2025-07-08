@@ -47,8 +47,4 @@ const (
 
 	// Legacy SSL redirect annotation
 	legacySSLRedirectAnnotation = "ingress.kubernetes.io/ssl-redirect"
-
-	// VirtualServer constants removed - support removed to reduce PR size
 )
-
-// VirtualServerGVK removed - support removed to reduce PR size

@@ -26,24 +26,25 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-// pathRegexFeature converts nginx.org/path-regex annotation to regex path matching
+// PathRegexFeature converts nginx.org/path-regex annotation to regex path matching
 func PathRegexFeature(ingresses []networkingv1.Ingress, servicePorts map[types.NamespacedName]map[string]int32, ir *intermediate.IR) field.ErrorList {
 	var errs field.ErrorList
+
+	// Valid values for path-regex annotation
+	var validPathRegexValues = map[string]struct{}{
+		"true":             {},
+		"case_sensitive":   {},
+		"case_insensitive": {},
+		"exact":            {},
+	}
 
 	for _, ingress := range ingresses {
 		pathRegex, exists := ingress.Annotations[nginxPathRegexAnnotation]
 		if !exists || pathRegex == "" {
 			continue
 		}
-		
-		validValues := map[string]bool{
-			"true":            true,
-			"case_sensitive":  true,
-			"case_insensitive": true,
-			"exact":           true,
-		}
-		
-		if !validValues[pathRegex] {
+
+		if _, valid := validPathRegexValues[pathRegex]; !valid {
 			continue
 		}
 
