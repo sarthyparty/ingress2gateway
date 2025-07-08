@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -86,57 +86,37 @@ func RewriteTargetFeature(ingresses []networkingv1.Ingress, servicePorts map[typ
 }
 
 // parseRewriteRules parses nginx.org/rewrites annotation format
-// Supports both formats:
-// 1. Simple format: "serviceName=rewritePath[,serviceName2=rewritePath2]"
-// 2. NIC format: "serviceName=service rewrite=path[,serviceName2=service2 rewrite=path2]"
+// NIC format: "serviceName=service rewrite=path[,serviceName2=service2 rewrite=path2]"
 func parseRewriteRules(rewriteValue string) map[string]string {
-	rules := make(map[string]string)
+	   rules := make(map[string]string)
 
-	if rewriteValue == "" {
-		return rules
-	}
+	   if rewriteValue == "" {
+			   return rules
+	   }
 
-	parts := strings.Split(rewriteValue, ",")
+	   // Split by semicolon for each rule
+	   parts := strings.Split(rewriteValue, ";")
 
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		if part == "" {
-			continue
-		}
+	   for _, part := range parts {
+			   part = strings.TrimSpace(part)
+			   if part == "" {
+					   continue
+			   }
 
-		if strings.Contains(part, " rewrite=") {
-			mainParts := strings.SplitN(part, "=", 2)
-			if len(mainParts) != 2 {
-				continue
-			}
+			   // Expect format: serviceName=service rewrite=rewrite
+			   serviceIdx := strings.Index(part, "=")
+			   rewriteIdx := strings.Index(part, " rewrite=")
+			   if serviceIdx == -1 || rewriteIdx == -1 || rewriteIdx <= serviceIdx {
+					   continue
+			   }
 
-			remaining := strings.TrimSpace(mainParts[1])
+			   serviceName := strings.TrimSpace(part[serviceIdx+1 : rewriteIdx])
+			   rewritePath := strings.TrimSpace(part[rewriteIdx+9:])
 
-			rewriteIndex := strings.Index(remaining, " rewrite=")
-			if rewriteIndex == -1 {
-				continue
-			}
+			   if serviceName != "" && rewritePath != "" {
+					   rules[serviceName] = rewritePath
+			   }
+	   }
 
-			serviceName := strings.TrimSpace(remaining[:rewriteIndex])
-			rewritePath := strings.TrimSpace(remaining[rewriteIndex+9:])
-
-			if serviceName != "" && rewritePath != "" {
-				rules[serviceName] = rewritePath
-			}
-		} else {
-			kv := strings.SplitN(part, "=", 2)
-			if len(kv) != 2 {
-				continue
-			}
-
-			serviceName := strings.TrimSpace(kv[0])
-			rewritePath := strings.TrimSpace(kv[1])
-
-			if serviceName != "" && rewritePath != "" {
-				rules[serviceName] = rewritePath
-			}
-		}
-	}
-
-	return rules
+	   return rules
 }

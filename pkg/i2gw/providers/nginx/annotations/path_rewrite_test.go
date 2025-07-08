@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -190,79 +190,46 @@ func TestParseRewriteRules(t *testing.T) {
 		input         string
 		expectedRules map[string]string
 	}{
-		{
-			name:  "single rule",
-			input: "web-service=/api/v1",
-			expectedRules: map[string]string{
-				"web-service": "/api/v1",
-			},
+	{
+		name:  "single rule",
+		input: "serviceName=coffee rewrite=/coffee",
+		expectedRules: map[string]string{
+			"coffee": "/coffee",
 		},
-		{
-			name:  "multiple rules",
-			input: "web-service=/api/v1,api-service=/api/v2,auth-service=/auth",
-			expectedRules: map[string]string{
-				"web-service":  "/api/v1",
-				"api-service":  "/api/v2", 
-				"auth-service": "/auth",
-			},
+	},
+	{
+		name:  "multiple rules",
+		input: "serviceName=coffee rewrite=/coffee;serviceName=tea rewrite=/tea",
+		expectedRules: map[string]string{
+			"coffee": "/coffee",
+			"tea":    "/tea",
 		},
-		{
-			name:  "rules with spaces",
-			input: "web-service=/api/v1, api-service=/api/v2 , auth-service=/auth",
-			expectedRules: map[string]string{
-				"web-service":  "/api/v1",
-				"api-service":  "/api/v2",
-				"auth-service": "/auth",
-			},
+	},
+	{
+		name:  "rules with spaces",
+		input: "serviceName=coffee rewrite=/coffee ; serviceName=tea rewrite=/tea ",
+		expectedRules: map[string]string{
+			"coffee": "/coffee",
+			"tea":    "/tea",
 		},
-		{
-			name:          "empty input",
-			input:         "",
-			expectedRules: map[string]string{},
+	},
+	{
+		name:          "empty input",
+		input:         "",
+		expectedRules: map[string]string{},
+	},
+	{
+		name:          "invalid format",
+		input:         "invalid-rule-without-equals",
+		expectedRules: map[string]string{},
+	},
+	{
+		name:  "complex path",
+		input: "serviceName=api-service rewrite=/api/v2/users",
+		expectedRules: map[string]string{
+			"api-service": "/api/v2/users",
 		},
-		{
-			name:          "invalid format",
-			input:         "invalid-rule-without-equals",
-			expectedRules: map[string]string{},
-		},
-		{
-			name:  "NIC format single",
-			input: "serviceName=coffee rewrite=/coffee",
-			expectedRules: map[string]string{
-				"coffee": "/coffee",
-			},
-		},
-		{
-			name:  "NIC format multiple",
-			input: "serviceName=coffee rewrite=/coffee,serviceName=tea rewrite=/tea",
-			expectedRules: map[string]string{
-				"coffee": "/coffee",
-				"tea":    "/tea",
-			},
-		},
-		{
-			name:  "mixed format",
-			input: "web-service=/api/v1,serviceName=coffee rewrite=/coffee",
-			expectedRules: map[string]string{
-				"web-service": "/api/v1",
-				"coffee":      "/coffee",
-			},
-		},
-		{
-			name:  "NIC format with spaces",
-			input: "serviceName=coffee rewrite=/coffee , serviceName=tea rewrite=/tea",
-			expectedRules: map[string]string{
-				"coffee": "/coffee",
-				"tea":    "/tea",
-			},
-		},
-		{
-			name:  "NIC format complex paths",
-			input: "serviceName=api-service rewrite=/api/v2/users",
-			expectedRules: map[string]string{
-				"api-service": "/api/v2/users",
-			},
-		},
+	},
 	}
 
 	for _, tt := range tests {
