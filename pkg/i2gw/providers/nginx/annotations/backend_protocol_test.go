@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/kubernetes-sigs/ingress2gateway/pkg/i2gw/intermediate"
+	"github.com/kubernetes-sigs/ingress2gateway/pkg/i2gw/providers/common"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -176,6 +177,13 @@ func TestBackendProtocolFeature(t *testing.T) {
 			annotations: map[string]string{},
 			expected:    0,
 		},
+		{
+			name: "grpc services",
+			annotations: map[string]string{
+				nginxGRPCServicesAnnotation: "grpc-service",
+			},
+			expected: 0, // No BackendTLSPolicies expected for gRPC
+		},
 	}
 
 	for _, tt := range tests {
@@ -211,5 +219,110 @@ func TestBackendProtocolFeature(t *testing.T) {
 				t.Errorf("Expected %d BackendTLSPolicies, got %d", tt.expected, len(ir.BackendTLSPolicies))
 			}
 		})
+	}
+}
+
+func TestGRPCServicesRemoveHTTPRoute(t *testing.T) {
+	ingress := networkingv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "grpc-ingress",
+			Namespace: "default",
+			Annotations: map[string]string{
+				nginxGRPCServicesAnnotation: "grpc-service",
+			},
+		},
+		Spec: networkingv1.IngressSpec{
+			IngressClassName: ptr.To("nginx"),
+			Rules: []networkingv1.IngressRule{
+				{
+					Host: "grpc.example.com",
+					IngressRuleValue: networkingv1.IngressRuleValue{
+						HTTP: &networkingv1.HTTPIngressRuleValue{
+							Paths: []networkingv1.HTTPIngressPath{
+								{
+									Path:     "/grpc.service/Method",
+									PathType: ptr.To(networkingv1.PathTypePrefix),
+									Backend: networkingv1.IngressBackend{
+										Service: &networkingv1.IngressServiceBackend{
+											Name: "grpc-service",
+											Port: networkingv1.ServiceBackendPort{Number: 50051},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Setup IR with an existing HTTPRoute that should be removed
+	routeName := common.RouteName(ingress.Name, ingress.Spec.Rules[0].Host)
+	routeKey := types.NamespacedName{Namespace: ingress.Namespace, Name: routeName}
+	
+	ir := intermediate.IR{
+		HTTPRoutes: map[types.NamespacedName]intermediate.HTTPRouteContext{
+			routeKey: {
+				HTTPRoute: gatewayv1.HTTPRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      routeName,
+						Namespace: ingress.Namespace,
+					},
+				},
+			},
+		},
+		GRPCRoutes:         make(map[types.NamespacedName]gatewayv1.GRPCRoute),
+		BackendTLSPolicies: make(map[types.NamespacedName]gatewayv1alpha3.BackendTLSPolicy),
+	}
+
+	// Verify HTTPRoute exists before
+	if _, exists := ir.HTTPRoutes[routeKey]; !exists {
+		t.Fatal("HTTPRoute should exist before calling BackendProtocolFeature")
+	}
+
+	// Execute
+	errs := BackendProtocolFeature([]networkingv1.Ingress{ingress}, nil, &ir)
+	if len(errs) > 0 {
+		t.Fatalf("Unexpected errors: %v", errs)
+	}
+
+	// Debug output
+	t.Logf("HTTPRoutes after: %d", len(ir.HTTPRoutes))
+	t.Logf("GRPCRoutes after: %d", len(ir.GRPCRoutes))
+	t.Logf("Expected routeKey: %s", routeKey)
+	for k := range ir.HTTPRoutes {
+		t.Logf("HTTPRoute key: %s", k)
+	}
+	for k := range ir.GRPCRoutes {
+		t.Logf("GRPCRoute key: %s", k)
+	}
+	
+	// Verify HTTPRoute was removed
+	if _, exists := ir.HTTPRoutes[routeKey]; exists {
+		t.Error("HTTPRoute should be removed for gRPC services")
+	}
+
+	// Verify GRPCRoute was created
+	if _, exists := ir.GRPCRoutes[routeKey]; !exists {
+		t.Error("GRPCRoute should be created for gRPC services")
+		return // Don't continue testing structure if route doesn't exist
+	}
+
+	// Verify GRPCRoute structure
+	grpcRoute := ir.GRPCRoutes[routeKey]
+	if len(grpcRoute.Spec.Rules) == 0 {
+		t.Error("GRPCRoute should have rules")
+		return
+	}
+	
+	if len(grpcRoute.Spec.Rules[0].BackendRefs) == 0 {
+		t.Error("GRPCRoute should have backend refs")
+		return
+	}
+	
+	backendRef := grpcRoute.Spec.Rules[0].BackendRefs[0]
+	if string(backendRef.BackendRef.BackendObjectReference.Name) != "grpc-service" {
+		t.Errorf("Expected backend service 'grpc-service', got '%s'", backendRef.BackendRef.BackendObjectReference.Name)
 	}
 }

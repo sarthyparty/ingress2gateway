@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/kubernetes-sigs/ingress2gateway/pkg/i2gw/intermediate"
+	"github.com/kubernetes-sigs/ingress2gateway/pkg/i2gw/providers/common"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -109,10 +110,8 @@ func processSSLServicesAnnotation(ingress networkingv1.Ingress, sslServices stri
 
 // parseGRPCServiceMethod parses gRPC service and method from HTTP path
 func parseGRPCServiceMethod(path string) (service, method string) {
-	if strings.HasPrefix(path, "/") {
-		path = path[1:]
-	}
-	
+	path = strings.TrimPrefix(path, "/")
+
 	parts := strings.SplitN(path, "/", 2)
 	if len(parts) >= 1 && parts[0] != "" {
 		service = parts[0]
@@ -120,7 +119,7 @@ func parseGRPCServiceMethod(path string) (service, method string) {
 	if len(parts) >= 2 && parts[1] != "" {
 		method = parts[1]
 	}
-	
+
 	return service, method
 }
 
@@ -186,7 +185,7 @@ func processGRPCServicesAnnotation(ingress networkingv1.Ingress, grpcServices st
 			if grpcServiceSet[serviceName] {
 				// Create a GRPCRoute rule for this path
 				grpcMatch := gatewayv1.GRPCRouteMatch{}
-				
+
 				// Convert HTTP path to gRPC service/method match
 				if path.Path != "" {
 					// Parse gRPC service and method from path
@@ -208,7 +207,7 @@ func processGRPCServicesAnnotation(ingress networkingv1.Ingress, grpcServices st
 					portNum := gatewayv1.PortNumber(path.Backend.Service.Port.Number)
 					port = &portNum
 				}
-				
+
 				backendRef := gatewayv1.GRPCBackendRef{
 					BackendRef: gatewayv1.BackendRef{
 						BackendObjectReference: gatewayv1.BackendObjectReference{
@@ -229,11 +228,8 @@ func processGRPCServicesAnnotation(ingress networkingv1.Ingress, grpcServices st
 
 		// Create GRPCRoute if we have any gRPC rules
 		if len(grpcRouteRules) > 0 {
-			routeName := fmt.Sprintf("%s-grpc", ingress.Name)
-			if rule.Host != "" {
-				routeName = fmt.Sprintf("%s-%s-grpc", ingress.Name, rule.Host)
-			}
-
+			// Use the same route name as HTTPRoute to replace it
+			routeName := common.RouteName(ingress.Name, rule.Host)
 			routeKey := types.NamespacedName{
 				Namespace: ingress.Namespace,
 				Name:      routeName,
@@ -277,6 +273,11 @@ func processGRPCServicesAnnotation(ingress networkingv1.Ingress, grpcServices st
 			}
 
 			ir.GRPCRoutes[routeKey] = grpcRoute
+
+			// Remove corresponding HTTPRoute since gRPC services should only have GRPCRoutes
+			if _, exists := ir.HTTPRoutes[routeKey]; exists {
+				delete(ir.HTTPRoutes, routeKey)
+			}
 		}
 	}
 

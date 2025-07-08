@@ -16,30 +16,6 @@ spec:
 status: {}
 ---
 apiVersion: gateway.networking.k8s.io/v1
-kind: HTTPRoute
-metadata:
-  annotations:
-    gateway.networking.k8s.io/generator: ingress2gateway-dev
-  creationTimestamp: null
-  name: grpc-services-test-grpc-example-com
-  namespace: default
-spec:
-  hostnames:
-  - grpc.example.com
-  parentRefs:
-  - name: nginx
-  rules:
-  - backendRefs:
-    - name: grpc-svc
-      port: 8080
-    matches:
-    - path:
-        type: PathPrefix
-        value: /helloworld.Greeter/SayHello
-status:
-  parents: []
----
-apiVersion: gateway.networking.k8s.io/v1
 kind: GRPCRoute
 metadata:
   annotations:
@@ -48,7 +24,7 @@ metadata:
   labels:
     app.kubernetes.io/managed-by: ingress2gateway
     ingress2gateway.io/source: nginx-grpc-services
-  name: grpc-services-test-grpc.example.com-grpc
+  name: grpc-services-test-grpc-example-com
   namespace: default
 spec:
   hostnames:
