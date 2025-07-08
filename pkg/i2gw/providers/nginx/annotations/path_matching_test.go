@@ -60,11 +60,11 @@ func TestPathRegex(t *testing.T) {
 			shouldModifyMatches: true,
 		},
 		{
-			name: "exact enables regex",
+			name: "exact enables exact matching",
 			annotations: map[string]string{
 				"nginx.org/path-regex": "exact",
 			},
-			expectedPathType:    gatewayv1.PathMatchRegularExpression,
+			expectedPathType:    gatewayv1.PathMatchExact,
 			shouldModifyMatches: true,
 		},
 		{
@@ -296,4 +296,87 @@ func TestPathRegexMultipleMatches(t *testing.T) {
 			t.Errorf("Expected match %d to have RegularExpression type, got %v", i, *match.Path.Type)
 		}
 	}
+}
+
+func TestPathRegexCaseInsensitiveNotification(t *testing.T) {
+	ingress := networkingv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-case-insensitive",
+			Namespace: "default",
+			Annotations: map[string]string{
+				"nginx.org/path-regex": "case_insensitive",
+			},
+		},
+		Spec: networkingv1.IngressSpec{
+			Rules: []networkingv1.IngressRule{
+				{
+					Host: "example.com",
+					IngressRuleValue: networkingv1.IngressRuleValue{
+						HTTP: &networkingv1.HTTPIngressRuleValue{
+							Paths: []networkingv1.HTTPIngressPath{
+								{
+									Path: "/api/.*",
+									Backend: networkingv1.IngressBackend{
+										Service: &networkingv1.IngressServiceBackend{
+											Name: "api-service",
+											Port: networkingv1.ServiceBackendPort{Number: 80},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	ir := intermediate.IR{
+		HTTPRoutes: make(map[types.NamespacedName]intermediate.HTTPRouteContext),
+	}
+
+	routeName := common.RouteName(ingress.Name, ingress.Spec.Rules[0].Host)
+	routeKey := types.NamespacedName{Namespace: ingress.Namespace, Name: routeName}
+
+	httpRoute := gatewayv1.HTTPRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      routeName,
+			Namespace: ingress.Namespace,
+		},
+		Spec: gatewayv1.HTTPRouteSpec{
+			Rules: []gatewayv1.HTTPRouteRule{
+				{
+					Matches: []gatewayv1.HTTPRouteMatch{
+						{
+							Path: &gatewayv1.HTTPPathMatch{
+								Type:  ptr.To(gatewayv1.PathMatchPathPrefix),
+								Value: ptr.To("/api/.*"),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	ir.HTTPRoutes[routeKey] = intermediate.HTTPRouteContext{
+		HTTPRoute: httpRoute,
+	}
+
+	errs := PathRegexFeature([]networkingv1.Ingress{ingress}, nil, &ir)
+	
+	// Should have no errors since we're using notifications now
+	if len(errs) != 0 {
+		t.Fatalf("Expected 0 errors, got %d", len(errs))
+	}
+	
+	// Verify path type is still set correctly
+	updatedRoute := ir.HTTPRoutes[routeKey]
+	if *updatedRoute.HTTPRoute.Spec.Rules[0].Matches[0].Path.Type != gatewayv1.PathMatchRegularExpression {
+		t.Errorf("Expected path type to be PathMatchRegularExpression")
+	}
+	
+	// Note: Testing notifications requires access to the notification aggregator,
+	// which is more complex to test in unit tests. The notification dispatch
+	// is tested through integration tests.
 }

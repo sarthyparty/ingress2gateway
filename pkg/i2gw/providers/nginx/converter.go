@@ -35,7 +35,6 @@ func newResourcesToIRConverter() *resourcesToIRConverter {
 	return &resourcesToIRConverter{
 		featureParsers: []i2gw.FeatureParser{
 			annotations.RewriteTargetFeature,
-			annotations.SSLRedirectFeature,
 			annotations.HeaderManipulationFeature,
 			annotations.BackendProtocolFeature,
 			annotations.PathRegexFeature,

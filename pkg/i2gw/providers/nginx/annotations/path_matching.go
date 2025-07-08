@@ -18,6 +18,7 @@ package annotations
 
 import (
 	"github.com/kubernetes-sigs/ingress2gateway/pkg/i2gw/intermediate"
+	"github.com/kubernetes-sigs/ingress2gateway/pkg/i2gw/notifications"
 	"github.com/kubernetes-sigs/ingress2gateway/pkg/i2gw/providers/common"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -48,6 +49,21 @@ func PathRegexFeature(ingresses []networkingv1.Ingress, servicePorts map[types.N
 			continue
 		}
 
+		// Determine the appropriate path match type based on the annotation value
+		var pathMatchType gatewayv1.PathMatchType
+		if pathRegex == "exact" {
+			pathMatchType = gatewayv1.PathMatchExact
+		} else {
+			// "true", "case_sensitive", "case_insensitive" all use regex
+			pathMatchType = gatewayv1.PathMatchRegularExpression
+
+			// Add warning for case_insensitive since Gateway API doesn't support it
+			if pathRegex == "case_insensitive" {
+				message := "nginx.org/path-regex: case_insensitive behavior cannot be guaranteed with Gateway API PathMatchRegularExpression - case sensitivity depends on Gateway implementation"
+				notify(notifications.WarningNotification, message, &ingress)
+			}
+		}
+
 		for _, rule := range ingress.Spec.Rules {
 			if rule.HTTP == nil {
 				continue
@@ -65,7 +81,7 @@ func PathRegexFeature(ingresses []networkingv1.Ingress, servicePorts map[types.N
 				for j := range httpRouteContext.HTTPRoute.Spec.Rules[i].Matches {
 					match := &httpRouteContext.HTTPRoute.Spec.Rules[i].Matches[j]
 					if match.Path != nil {
-						match.Path.Type = ptr.To(gatewayv1.PathMatchRegularExpression)
+						match.Path.Type = ptr.To(pathMatchType)
 					}
 				}
 			}
