@@ -153,7 +153,7 @@ func TestCreateRequestHeaderModifier(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			result := createRequestHeaderModifier(tc.input)
-			
+
 			// Special handling for multiple headers test due to map iteration order
 			if tc.name == "multiple headers with values" {
 				if result == nil {
@@ -185,7 +185,7 @@ func TestCreateRequestHeaderModifier(t *testing.T) {
 				}
 				return
 			}
-			
+
 			if !reflect.DeepEqual(result, tc.expectedFilter) {
 				t.Errorf("Expected %+v, got %+v", tc.expectedFilter, result)
 			}

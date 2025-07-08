@@ -31,10 +31,10 @@ import (
 
 func TestSSLServicesAnnotation(t *testing.T) {
 	tests := []struct {
-		name               string
-		annotation         string
-		expectedPolicies   int
-		expectedServices   []string
+		name             string
+		annotation       string
+		expectedPolicies int
+		expectedServices []string
 	}{
 		{
 			name:             "single service",
@@ -260,7 +260,7 @@ func TestGRPCServicesRemoveHTTPRoute(t *testing.T) {
 	// Setup IR with an existing HTTPRoute that should be removed
 	routeName := common.RouteName(ingress.Name, ingress.Spec.Rules[0].Host)
 	routeKey := types.NamespacedName{Namespace: ingress.Namespace, Name: routeName}
-	
+
 	ir := intermediate.IR{
 		HTTPRoutes: map[types.NamespacedName]intermediate.HTTPRouteContext{
 			routeKey: {
@@ -297,7 +297,7 @@ func TestGRPCServicesRemoveHTTPRoute(t *testing.T) {
 	for k := range ir.GRPCRoutes {
 		t.Logf("GRPCRoute key: %s", k)
 	}
-	
+
 	// Verify HTTPRoute was removed
 	if _, exists := ir.HTTPRoutes[routeKey]; exists {
 		t.Error("HTTPRoute should be removed for gRPC services")
@@ -315,12 +315,12 @@ func TestGRPCServicesRemoveHTTPRoute(t *testing.T) {
 		t.Error("GRPCRoute should have rules")
 		return
 	}
-	
+
 	if len(grpcRoute.Spec.Rules[0].BackendRefs) == 0 {
 		t.Error("GRPCRoute should have backend refs")
 		return
 	}
-	
+
 	backendRef := grpcRoute.Spec.Rules[0].BackendRefs[0]
 	if string(backendRef.BackendRef.BackendObjectReference.Name) != "grpc-service" {
 		t.Errorf("Expected backend service 'grpc-service', got '%s'", backendRef.BackendRef.BackendObjectReference.Name)

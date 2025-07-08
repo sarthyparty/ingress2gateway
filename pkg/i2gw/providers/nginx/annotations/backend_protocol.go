@@ -32,7 +32,7 @@ import (
 )
 
 // BackendProtocolFeature converts backend protocol annotations to appropriate route types
-func BackendProtocolFeature(ingresses []networkingv1.Ingress, servicePorts map[types.NamespacedName]map[string]int32, ir *intermediate.IR) field.ErrorList {
+func BackendProtocolFeature(ingresses []networkingv1.Ingress, _ map[types.NamespacedName]map[string]int32, ir *intermediate.IR) field.ErrorList {
 	var errs field.ErrorList
 
 	for _, ingress := range ingresses {

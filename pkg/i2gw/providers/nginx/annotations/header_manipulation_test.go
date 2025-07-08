@@ -75,9 +75,9 @@ func TestParseSetHeaders(t *testing.T) {
 			name:  "mixed format",
 			input: "X-Default-Header,X-Custom-Header: custom-value,X-Another-Header",
 			expected: map[string]string{
-				"X-Default-Header":  "",
-				"X-Custom-Header":   "custom-value",
-				"X-Another-Header":  "",
+				"X-Default-Header": "",
+				"X-Custom-Header":  "custom-value",
+				"X-Another-Header": "",
 			},
 		},
 		{
@@ -102,11 +102,11 @@ func TestParseSetHeaders(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := parseSetHeaders(tt.input)
-			
+
 			if len(result) != len(tt.expected) {
 				t.Errorf("Expected %d headers, got %d", len(tt.expected), len(result))
 			}
-			
+
 			for expectedName, expectedValue := range tt.expected {
 				if actualValue, exists := result[expectedName]; !exists {
 					t.Errorf("Expected header %s not found", expectedName)
@@ -283,15 +283,15 @@ func TestSetHeaders(t *testing.T) {
 			},
 		},
 		{
-			name:            "nginx variables filtered out",
-			setHeaders:      "X-Real-IP: $remote_addr,X-Custom: hello-world",
+			name:       "nginx variables filtered out",
+			setHeaders: "X-Real-IP: $remote_addr,X-Custom: hello-world",
 			expectedHeaders: []gatewayv1.HTTPHeader{
 				{Name: "X-Custom", Value: "hello-world"},
 			},
 		},
 		{
-			name:            "empty values filtered out",
-			setHeaders:      "X-Empty-Header,X-Custom: hello-world",
+			name:       "empty values filtered out",
+			setHeaders: "X-Empty-Header,X-Custom: hello-world",
 			expectedHeaders: []gatewayv1.HTTPHeader{
 				{Name: "X-Custom", Value: "hello-world"},
 			},
@@ -422,10 +422,10 @@ func TestSetHeaders(t *testing.T) {
 
 func TestHeaderManipulationFeature(t *testing.T) {
 	tests := []struct {
-		name                   string
-		annotations            map[string]string
-		expectedHideHeaders    []string
-		expectedSetHeaders     []gatewayv1.HTTPHeader
+		name                string
+		annotations         map[string]string
+		expectedHideHeaders []string
+		expectedSetHeaders  []gatewayv1.HTTPHeader
 	}{
 		{
 			name: "both hide and set headers",

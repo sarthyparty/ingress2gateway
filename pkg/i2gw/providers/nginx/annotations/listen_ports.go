@@ -36,7 +36,7 @@ type portConfiguration struct {
 }
 
 // ListenPortsFeature processes nginx.org/listen-ports and nginx.org/listen-ports-ssl annotations
-func ListenPortsFeature(ingresses []networkingv1.Ingress, servicePorts map[types.NamespacedName]map[string]int32, ir *intermediate.IR) field.ErrorList {
+func ListenPortsFeature(ingresses []networkingv1.Ingress, _ map[types.NamespacedName]map[string]int32, ir *intermediate.IR) field.ErrorList {
 	var errs field.ErrorList
 
 	for _, ingress := range ingresses {
@@ -136,16 +136,16 @@ func replaceGatewayPortsWithCustom(ingress networkingv1.Ingress, portConfigurati
 
 	for _, rule := range ingress.Spec.Rules {
 		hostname := rule.Host
-		
+
 		// Track used ports to avoid conflicts - HTTPS takes precedence over HTTP
 		usedPorts := make(map[int32]bool)
-		
+
 		// Add HTTPS listeners first (they take precedence)
 		for _, port := range portConfiguration.HTTPS {
 			filteredListeners = append(filteredListeners, createListener(hostname, port, gatewayv1.HTTPSProtocolType))
 			usedPorts[port] = true
 		}
-		
+
 		// Add HTTP listeners only if port not already used by HTTPS
 		for _, port := range portConfiguration.HTTP {
 			if !usedPorts[port] {

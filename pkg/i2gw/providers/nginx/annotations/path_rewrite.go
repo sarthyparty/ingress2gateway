@@ -29,7 +29,7 @@ import (
 )
 
 // RewriteTargetFeature converts nginx.org/rewrites annotation to URLRewrite filter
-func RewriteTargetFeature(ingresses []networkingv1.Ingress, servicePorts map[types.NamespacedName]map[string]int32, ir *intermediate.IR) field.ErrorList {
+func RewriteTargetFeature(ingresses []networkingv1.Ingress, _ map[types.NamespacedName]map[string]int32, ir *intermediate.IR) field.ErrorList {
 	var errs field.ErrorList
 
 	for _, ingress := range ingresses {
@@ -88,35 +88,35 @@ func RewriteTargetFeature(ingresses []networkingv1.Ingress, servicePorts map[typ
 // parseRewriteRules parses nginx.org/rewrites annotation format
 // NIC format: "serviceName=service rewrite=path[,serviceName2=service2 rewrite=path2]"
 func parseRewriteRules(rewriteValue string) map[string]string {
-	   rules := make(map[string]string)
+	rules := make(map[string]string)
 
-	   if rewriteValue == "" {
-			   return rules
-	   }
+	if rewriteValue == "" {
+		return rules
+	}
 
-	   // Split by semicolon for each rule
-	   parts := strings.Split(rewriteValue, ";")
+	// Split by semicolon for each rule
+	parts := strings.Split(rewriteValue, ";")
 
-	   for _, part := range parts {
-			   part = strings.TrimSpace(part)
-			   if part == "" {
-					   continue
-			   }
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
 
-			   // Expect format: serviceName=service rewrite=rewrite
-			   serviceIdx := strings.Index(part, "=")
-			   rewriteIdx := strings.Index(part, " rewrite=")
-			   if serviceIdx == -1 || rewriteIdx == -1 || rewriteIdx <= serviceIdx {
-					   continue
-			   }
+		// Expect format: serviceName=service rewrite=rewrite
+		serviceIdx := strings.Index(part, "=")
+		rewriteIdx := strings.Index(part, " rewrite=")
+		if serviceIdx == -1 || rewriteIdx == -1 || rewriteIdx <= serviceIdx {
+			continue
+		}
 
-			   serviceName := strings.TrimSpace(part[serviceIdx+1 : rewriteIdx])
-			   rewritePath := strings.TrimSpace(part[rewriteIdx+9:])
+		serviceName := strings.TrimSpace(part[serviceIdx+1 : rewriteIdx])
+		rewritePath := strings.TrimSpace(part[rewriteIdx+9:])
 
-			   if serviceName != "" && rewritePath != "" {
-					   rules[serviceName] = rewritePath
-			   }
-	   }
+		if serviceName != "" && rewritePath != "" {
+			rules[serviceName] = rewritePath
+		}
+	}
 
-	   return rules
+	return rules
 }

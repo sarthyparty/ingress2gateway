@@ -41,7 +41,7 @@ func TestRewriteTarget(t *testing.T) {
 					Name:      "test-ingress",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"nginx.org/rewrites": "web-service=/api/v1",
+						"nginx.org/rewrites": "serviceName=web-service rewrite=/api/v1",
 					},
 				},
 				Spec: networkingv1.IngressSpec{
@@ -130,7 +130,7 @@ func TestRewriteTarget(t *testing.T) {
 
 			routeName := common.RouteName(tt.ingress.Name, tt.ingress.Spec.Rules[0].Host)
 			routeKey := types.NamespacedName{Namespace: tt.ingress.Namespace, Name: routeName}
-			
+
 			httpRoute := gatewayv1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      routeName,
@@ -176,7 +176,7 @@ func TestRewriteTarget(t *testing.T) {
 			}
 
 			if *filter.URLRewrite.Path.ReplacePrefixMatch != *tt.expectedFilter.URLRewrite.Path.ReplacePrefixMatch {
-				t.Errorf("Expected rewrite path %v, got %v", 
+				t.Errorf("Expected rewrite path %v, got %v",
 					*tt.expectedFilter.URLRewrite.Path.ReplacePrefixMatch,
 					*filter.URLRewrite.Path.ReplacePrefixMatch)
 			}
@@ -190,52 +190,52 @@ func TestParseRewriteRules(t *testing.T) {
 		input         string
 		expectedRules map[string]string
 	}{
-	{
-		name:  "single rule",
-		input: "serviceName=coffee rewrite=/coffee",
-		expectedRules: map[string]string{
-			"coffee": "/coffee",
+		{
+			name:  "single rule",
+			input: "serviceName=coffee rewrite=/coffee",
+			expectedRules: map[string]string{
+				"coffee": "/coffee",
+			},
 		},
-	},
-	{
-		name:  "multiple rules",
-		input: "serviceName=coffee rewrite=/coffee;serviceName=tea rewrite=/tea",
-		expectedRules: map[string]string{
-			"coffee": "/coffee",
-			"tea":    "/tea",
+		{
+			name:  "multiple rules",
+			input: "serviceName=coffee rewrite=/coffee;serviceName=tea rewrite=/tea",
+			expectedRules: map[string]string{
+				"coffee": "/coffee",
+				"tea":    "/tea",
+			},
 		},
-	},
-	{
-		name:  "rules with spaces",
-		input: "serviceName=coffee rewrite=/coffee ; serviceName=tea rewrite=/tea ",
-		expectedRules: map[string]string{
-			"coffee": "/coffee",
-			"tea":    "/tea",
+		{
+			name:  "rules with spaces",
+			input: "serviceName=coffee rewrite=/coffee ; serviceName=tea rewrite=/tea ",
+			expectedRules: map[string]string{
+				"coffee": "/coffee",
+				"tea":    "/tea",
+			},
 		},
-	},
-	{
-		name:          "empty input",
-		input:         "",
-		expectedRules: map[string]string{},
-	},
-	{
-		name:          "invalid format",
-		input:         "invalid-rule-without-equals",
-		expectedRules: map[string]string{},
-	},
-	{
-		name:  "complex path",
-		input: "serviceName=api-service rewrite=/api/v2/users",
-		expectedRules: map[string]string{
-			"api-service": "/api/v2/users",
+		{
+			name:          "empty input",
+			input:         "",
+			expectedRules: map[string]string{},
 		},
-	},
+		{
+			name:          "invalid format",
+			input:         "invalid-rule-without-equals",
+			expectedRules: map[string]string{},
+		},
+		{
+			name:  "complex path",
+			input: "serviceName=api-service rewrite=/api/v2/users",
+			expectedRules: map[string]string{
+				"api-service": "/api/v2/users",
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := parseRewriteRules(tt.input)
-			
+
 			if len(result) != len(tt.expectedRules) {
 				t.Errorf("Expected %d rules, got %d", len(tt.expectedRules), len(result))
 			}

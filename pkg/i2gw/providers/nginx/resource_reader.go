@@ -83,4 +83,3 @@ func (r *resourceReader) readResourcesFromFile(filename string) (*storage, error
 
 	return storage, nil
 }
-

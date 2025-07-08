@@ -448,7 +448,7 @@ func TestListenPortsReplacesDefaultListeners(t *testing.T) {
 	foundPorts := make(map[int32]gatewayv1.ProtocolType)
 	for _, listener := range gateway.Gateway.Spec.Listeners {
 		foundPorts[int32(listener.Port)] = listener.Protocol
-		
+
 		// Verify hostname is set correctly
 		if listener.Hostname == nil || string(*listener.Hostname) != "example.com" {
 			t.Errorf("Expected hostname 'example.com', got %v", listener.Hostname)
@@ -542,7 +542,7 @@ func TestListenPortsConflictResolution(t *testing.T) {
 	// Verify specific expected configurations
 	expectedConfigs := map[int32]gatewayv1.ProtocolType{
 		8080: gatewayv1.HTTPProtocolType,  // HTTP only
-		9090: gatewayv1.HTTPProtocolType,  // HTTP only  
+		9090: gatewayv1.HTTPProtocolType,  // HTTP only
 		8443: gatewayv1.HTTPSProtocolType, // HTTPS takes precedence over HTTP
 		9443: gatewayv1.HTTPSProtocolType, // HTTPS only
 	}
