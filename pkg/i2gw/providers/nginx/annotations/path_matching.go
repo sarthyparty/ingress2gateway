@@ -17,6 +17,8 @@ limitations under the License.
 package annotations
 
 import (
+	"strings"
+
 	"github.com/kubernetes-sigs/ingress2gateway/pkg/i2gw/intermediate"
 	"github.com/kubernetes-sigs/ingress2gateway/pkg/i2gw/notifications"
 	"github.com/kubernetes-sigs/ingress2gateway/pkg/i2gw/providers/common"
@@ -57,9 +59,13 @@ func PathRegexFeature(ingresses []networkingv1.Ingress, _ map[types.NamespacedNa
 			// "true", "case_sensitive", "case_insensitive" all use regex
 			pathMatchType = gatewayv1.PathMatchRegularExpression
 
-			// Add warning for case_insensitive since Gateway API doesn't support it
+			// Add a general warning about NGF not supporting regex
+			message := "nginx.org/path-regex: PathMatchRegularExpression is not supported by NGINX Gateway Fabric - only Exact and PathPrefix are supported"
+			notify(notifications.WarningNotification, message, &ingress)
+
+			// Add a warning for case_insensitive since Gateway API doesn't guarantee it
 			if pathRegex == "case_insensitive" {
-				message := "nginx.org/path-regex: case_insensitive behavior cannot be guaranteed with Gateway API PathMatchRegularExpression - case sensitivity depends on Gateway implementation"
+				message := "nginx.org/path-regex: case_insensitive - injected (?i) regex flag but case insensitive behavior depends on Gateway implementation support"
 				notify(notifications.WarningNotification, message, &ingress)
 			}
 		}
@@ -81,6 +87,18 @@ func PathRegexFeature(ingresses []networkingv1.Ingress, _ map[types.NamespacedNa
 				for _, match := range routeRule.Matches {
 					if match.Path != nil {
 						match.Path.Type = ptr.To(pathMatchType)
+
+						// For case_insensitive regex, inject (?i) flag at the beginning
+						if pathRegex == "case_insensitive" && pathMatchType == gatewayv1.PathMatchRegularExpression {
+							if match.Path.Value != nil {
+								originalPath := *match.Path.Value
+								// Only inject if not already present
+								if !strings.HasPrefix(originalPath, "(?i)") {
+									caseInsensitivePath := "(?i)" + originalPath
+									match.Path.Value = &caseInsensitivePath
+								}
+							}
+						}
 					}
 				}
 			}

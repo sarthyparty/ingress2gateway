@@ -33,6 +33,7 @@ func TestPathRegex(t *testing.T) {
 		name                string
 		annotations         map[string]string
 		expectedPathType    gatewayv1.PathMatchType
+		expectedPathValue   string
 		shouldModifyMatches bool
 	}{
 		{
@@ -41,6 +42,7 @@ func TestPathRegex(t *testing.T) {
 				"nginx.org/path-regex": "true",
 			},
 			expectedPathType:    gatewayv1.PathMatchRegularExpression,
+			expectedPathValue:   "/api/.*",
 			shouldModifyMatches: true,
 		},
 		{
@@ -49,6 +51,7 @@ func TestPathRegex(t *testing.T) {
 				"nginx.org/path-regex": "case_sensitive",
 			},
 			expectedPathType:    gatewayv1.PathMatchRegularExpression,
+			expectedPathValue:   "/api/.*",
 			shouldModifyMatches: true,
 		},
 		{
@@ -57,6 +60,7 @@ func TestPathRegex(t *testing.T) {
 				"nginx.org/path-regex": "case_insensitive",
 			},
 			expectedPathType:    gatewayv1.PathMatchRegularExpression,
+			expectedPathValue:   "(?i)/api/.*",
 			shouldModifyMatches: true,
 		},
 		{
@@ -65,6 +69,7 @@ func TestPathRegex(t *testing.T) {
 				"nginx.org/path-regex": "exact",
 			},
 			expectedPathType:    gatewayv1.PathMatchExact,
+			expectedPathValue:   "/api/.*",
 			shouldModifyMatches: true,
 		},
 		{
@@ -73,6 +78,7 @@ func TestPathRegex(t *testing.T) {
 				"nginx.org/path-regex": "false",
 			},
 			expectedPathType:    gatewayv1.PathMatchPathPrefix,
+			expectedPathValue:   "/api/.*",
 			shouldModifyMatches: false,
 		},
 		{
@@ -81,12 +87,14 @@ func TestPathRegex(t *testing.T) {
 				"nginx.org/rewrites": "service=/api",
 			},
 			expectedPathType:    gatewayv1.PathMatchPathPrefix,
+			expectedPathValue:   "/api/.*",
 			shouldModifyMatches: false,
 		},
 		{
 			name:                "no annotations disables regex",
 			annotations:         map[string]string{},
 			expectedPathType:    gatewayv1.PathMatchPathPrefix,
+			expectedPathValue:   "/api/.*",
 			shouldModifyMatches: false,
 		},
 	}
@@ -187,9 +195,8 @@ func TestPathRegex(t *testing.T) {
 				t.Errorf("Expected path type %v, got %v", tt.expectedPathType, actualPathType)
 			}
 
-			expectedPath := "/api/.*"
-			if *match.Path.Value != expectedPath {
-				t.Errorf("Expected path value %v, got %v", expectedPath, *match.Path.Value)
+			if *match.Path.Value != tt.expectedPathValue {
+				t.Errorf("Expected path value %v, got %v", tt.expectedPathValue, *match.Path.Value)
 			}
 		})
 	}
@@ -379,4 +386,193 @@ func TestPathRegexCaseInsensitiveNotification(t *testing.T) {
 	// Note: Testing notifications requires access to the notification aggregator,
 	// which is more complex to test in unit tests. The notification dispatch
 	// is tested through integration tests.
+}
+
+func TestPathRegexCaseInsensitiveFlagInjection(t *testing.T) {
+	ingress := networkingv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-ingress",
+			Namespace: "default",
+			Annotations: map[string]string{
+				nginxPathRegexAnnotation: "case_insensitive",
+			},
+		},
+		Spec: networkingv1.IngressSpec{
+			IngressClassName: ptr.To("nginx"),
+			Rules: []networkingv1.IngressRule{
+				{
+					Host: "example.com",
+					IngressRuleValue: networkingv1.IngressRuleValue{
+						HTTP: &networkingv1.HTTPIngressRuleValue{
+							Paths: []networkingv1.HTTPIngressPath{
+								{
+									Path:     "/api/v[0-9]+",
+									PathType: ptr.To(networkingv1.PathTypePrefix),
+									Backend: networkingv1.IngressBackend{
+										Service: &networkingv1.IngressServiceBackend{
+											Name: "api-service",
+											Port: networkingv1.ServiceBackendPort{Number: 80},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Create HTTPRoute first (simulating what common converter creates)
+	routeName := common.RouteName(ingress.Name, ingress.Spec.Rules[0].Host)
+	routeKey := types.NamespacedName{Namespace: ingress.Namespace, Name: routeName}
+
+	originalPath := "/api/v[0-9]+"
+	ir := intermediate.IR{
+		HTTPRoutes: map[types.NamespacedName]intermediate.HTTPRouteContext{
+			routeKey: {
+				HTTPRoute: gatewayv1.HTTPRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      routeName,
+						Namespace: ingress.Namespace,
+					},
+					Spec: gatewayv1.HTTPRouteSpec{
+						Rules: []gatewayv1.HTTPRouteRule{
+							{
+								Matches: []gatewayv1.HTTPRouteMatch{
+									{
+										Path: &gatewayv1.HTTPPathMatch{
+											Type:  ptr.To(gatewayv1.PathMatchPathPrefix),
+											Value: &originalPath,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Apply path regex feature
+	errs := PathRegexFeature([]networkingv1.Ingress{ingress}, nil, &ir)
+	if len(errs) > 0 {
+		t.Fatalf("Unexpected errors: %v", errs)
+	}
+
+	// Verify the path was modified
+	updatedRoute := ir.HTTPRoutes[routeKey]
+	if len(updatedRoute.HTTPRoute.Spec.Rules) == 0 {
+		t.Fatal("Expected HTTPRoute to have rules")
+	}
+
+	rule := updatedRoute.HTTPRoute.Spec.Rules[0]
+	if len(rule.Matches) == 0 {
+		t.Fatal("Expected HTTPRoute rule to have matches")
+	}
+
+	match := rule.Matches[0]
+	if match.Path == nil {
+		t.Fatal("Expected HTTPRoute match to have path")
+	}
+
+	// Verify path match type is regular expression
+	if match.Path.Type == nil || *match.Path.Type != gatewayv1.PathMatchRegularExpression {
+		t.Errorf("Expected PathMatchRegularExpression, got %v", match.Path.Type)
+	}
+
+	// Verify (?i) flag was injected
+	if match.Path.Value == nil {
+		t.Fatal("Expected path value to be set")
+	}
+
+	expectedPath := "(?i)/api/v[0-9]+"
+	if *match.Path.Value != expectedPath {
+		t.Errorf("Expected path value '%s', got '%s'", expectedPath, *match.Path.Value)
+	}
+}
+
+func TestPathRegexCaseInsensitiveFlagNotDuplicated(t *testing.T) {
+	ingress := networkingv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-ingress",
+			Namespace: "default",
+			Annotations: map[string]string{
+				nginxPathRegexAnnotation: "case_insensitive",
+			},
+		},
+		Spec: networkingv1.IngressSpec{
+			IngressClassName: ptr.To("nginx"),
+			Rules: []networkingv1.IngressRule{
+				{
+					Host: "example.com",
+					IngressRuleValue: networkingv1.IngressRuleValue{
+						HTTP: &networkingv1.HTTPIngressRuleValue{
+							Paths: []networkingv1.HTTPIngressPath{
+								{
+									Path:     "/api/v[0-9]+",
+									PathType: ptr.To(networkingv1.PathTypePrefix),
+									Backend: networkingv1.IngressBackend{
+										Service: &networkingv1.IngressServiceBackend{
+											Name: "api-service",
+											Port: networkingv1.ServiceBackendPort{Number: 80},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Create HTTPRoute with path that already has (?i) flag
+	routeName := common.RouteName(ingress.Name, ingress.Spec.Rules[0].Host)
+	routeKey := types.NamespacedName{Namespace: ingress.Namespace, Name: routeName}
+	
+	originalPath := "(?i)/api/v[0-9]+"
+	ir := intermediate.IR{
+		HTTPRoutes: map[types.NamespacedName]intermediate.HTTPRouteContext{
+			routeKey: {
+				HTTPRoute: gatewayv1.HTTPRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      routeName,
+						Namespace: ingress.Namespace,
+					},
+					Spec: gatewayv1.HTTPRouteSpec{
+						Rules: []gatewayv1.HTTPRouteRule{
+							{
+								Matches: []gatewayv1.HTTPRouteMatch{
+									{
+										Path: &gatewayv1.HTTPPathMatch{
+											Type:  ptr.To(gatewayv1.PathMatchPathPrefix),
+											Value: &originalPath,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Apply path regex feature
+	errs := PathRegexFeature([]networkingv1.Ingress{ingress}, nil, &ir)
+	if len(errs) > 0 {
+		t.Fatalf("Unexpected errors: %v", errs)
+	}
+
+	// Verify the path was NOT duplicated
+	updatedRoute := ir.HTTPRoutes[routeKey]
+	match := updatedRoute.HTTPRoute.Spec.Rules[0].Matches[0]
+
+	// Should still be the original path, not (?i)(?i)/api/v[0-9]+
+	expectedPath := "(?i)/api/v[0-9]+"
+	if *match.Path.Value != expectedPath {
+		t.Errorf("Expected path value '%s', got '%s'", expectedPath, *match.Path.Value)
+	}
 }
