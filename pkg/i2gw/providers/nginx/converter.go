@@ -39,6 +39,7 @@ func newResourcesToIRConverter() *resourcesToIRConverter {
 			annotations.BackendProtocolFeature,
 			annotations.PathRegexFeature,
 			annotations.ListenPortsFeature,
+			annotations.SSLRedirectFeature,
 		},
 		implementationSpecificOptions: i2gw.ProviderImplementationSpecificOptions{},
 	}

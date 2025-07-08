@@ -45,8 +45,8 @@ const (
 	// nginxHSTSAnnotation, nginxHSTSMaxAgeAnnotation, nginxHSTSIncludeSubdomainsAnnotation
 	// nginxBasicAuthSecretAnnotation, nginxBasicAuthRealmAnnotation
 
-	// Legacy SSL redirect annotation (kept for future reference)
-	// legacySSLRedirectAnnotation = "ingress.kubernetes.io/ssl-redirect"
+	// Legacy SSL redirect annotation
+	legacySSLRedirectAnnotation = "ingress.kubernetes.io/ssl-redirect"
 )
 
 // NginxIngressClass class name
