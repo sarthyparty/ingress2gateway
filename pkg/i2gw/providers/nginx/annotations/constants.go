@@ -23,7 +23,6 @@ const (
 	// Standard annotations that map directly to Gateway API
 	nginxRewritesAnnotation        = nginxOrgPrefix + "rewrites"
 	nginxRedirectToHTTPSAnnotation = nginxOrgPrefix + "redirect-to-https"
-	nginxLBMethodAnnotation        = nginxOrgPrefix + "lb-method"
 	// nginxServerAliasAnnotation removed - unfinished implementation
 
 	// Header manipulation annotations
