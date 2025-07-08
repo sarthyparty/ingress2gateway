@@ -77,9 +77,8 @@ func PathRegexFeature(ingresses []networkingv1.Ingress, servicePorts map[types.N
 				continue
 			}
 
-			for i := range httpRouteContext.HTTPRoute.Spec.Rules {
-				for j := range httpRouteContext.HTTPRoute.Spec.Rules[i].Matches {
-					match := &httpRouteContext.HTTPRoute.Spec.Rules[i].Matches[j]
+			for _, rule := range httpRouteContext.HTTPRoute.Spec.Rules {
+				for _, match := range rule.Matches {
 					if match.Path != nil {
 						match.Path.Type = ptr.To(pathMatchType)
 					}
