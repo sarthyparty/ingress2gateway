@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,44 +30,44 @@ import (
 
 func TestExtractListenPorts(t *testing.T) {
 	tests := []struct {
-		name        string
-		annotation  string
-		expected    []int32
+		name       string
+		annotation string
+		expected   []int32
 	}{
 		{
-			name:        "empty annotation",
-			annotation:  "",
-			expected:    nil,
+			name:       "empty annotation",
+			annotation: "",
+			expected:   nil,
 		},
 		{
-			name:        "single port",
-			annotation:  "8080",
-			expected:    []int32{8080},
+			name:       "single port",
+			annotation: "8080",
+			expected:   []int32{8080},
 		},
 		{
-			name:        "multiple ports",
-			annotation:  "8080,9090,3000",
-			expected:    []int32{8080, 9090, 3000},
+			name:       "multiple ports",
+			annotation: "8080,9090,3000",
+			expected:   []int32{8080, 9090, 3000},
 		},
 		{
-			name:        "ports with spaces",
-			annotation:  " 8080 , 9090 , 3000 ",
-			expected:    []int32{8080, 9090, 3000},
+			name:       "ports with spaces",
+			annotation: " 8080 , 9090 , 3000 ",
+			expected:   []int32{8080, 9090, 3000},
 		},
 		{
-			name:        "invalid ports filtered",
-			annotation:  "8080,invalid,9090,0,65536",
-			expected:    []int32{8080, 9090},
+			name:       "invalid ports filtered",
+			annotation: "8080,invalid,9090,0,65536",
+			expected:   []int32{8080, 9090},
 		},
 		{
-			name:        "empty parts filtered",
-			annotation:  "8080,,9090,",
-			expected:    []int32{8080, 9090},
+			name:       "empty parts filtered",
+			annotation: "8080,,9090,",
+			expected:   []int32{8080, 9090},
 		},
 		{
-			name:        "edge ports",
-			annotation:  "1,65535",
-			expected:    []int32{1, 65535},
+			name:       "edge ports",
+			annotation: "1,65535",
+			expected:   []int32{1, 65535},
 		},
 	}
 
@@ -83,39 +83,39 @@ func TestExtractListenPorts(t *testing.T) {
 
 func TestCreateListenerName(t *testing.T) {
 	tests := []struct {
-		name        string
-		hostname    string
-		port        int32
-		protocol    gatewayv1.ProtocolType
-		expected    string
+		name     string
+		hostname string
+		port     int32
+		protocol gatewayv1.ProtocolType
+		expected string
 	}{
 		{
-			name:        "HTTP listener",
-			hostname:    "example.com",
-			port:        8080,
-			protocol:    gatewayv1.HTTPProtocolType,
-			expected:    "example-com-http-8080",
+			name:     "HTTP listener",
+			hostname: "example.com",
+			port:     8080,
+			protocol: gatewayv1.HTTPProtocolType,
+			expected: "example-com-http-8080",
 		},
 		{
-			name:        "HTTPS listener",
-			hostname:    "api.example.com",
-			port:        8443,
-			protocol:    gatewayv1.HTTPSProtocolType,
-			expected:    "api-example-com-https-8443",
+			name:     "HTTPS listener",
+			hostname: "api.example.com",
+			port:     8443,
+			protocol: gatewayv1.HTTPSProtocolType,
+			expected: "api-example-com-https-8443",
 		},
 		{
-			name:        "empty hostname",
-			hostname:    "",
-			port:        9090,
-			protocol:    gatewayv1.HTTPProtocolType,
-			expected:    "all-hosts-http-9090",
+			name:     "empty hostname",
+			hostname: "",
+			port:     9090,
+			protocol: gatewayv1.HTTPProtocolType,
+			expected: "all-hosts-http-9090",
 		},
 		{
-			name:        "wildcard hostname",
-			hostname:    "*",
-			port:        8080,
-			protocol:    gatewayv1.HTTPProtocolType,
-			expected:    "all-hosts-http-8080",
+			name:     "wildcard hostname",
+			hostname: "*",
+			port:     8080,
+			protocol: gatewayv1.HTTPProtocolType,
+			expected: "all-hosts-http-8080",
 		},
 	}
 
@@ -131,17 +131,17 @@ func TestCreateListenerName(t *testing.T) {
 
 func TestCreateListener(t *testing.T) {
 	tests := []struct {
-		name        string
-		hostname    string
-		port        int32
-		protocol    gatewayv1.ProtocolType
-		expected    gatewayv1.Listener
+		name     string
+		hostname string
+		port     int32
+		protocol gatewayv1.ProtocolType
+		expected gatewayv1.Listener
 	}{
 		{
-			name:        "HTTP with hostname",
-			hostname:    "example.com",
-			port:        8080,
-			protocol:    gatewayv1.HTTPProtocolType,
+			name:     "HTTP with hostname",
+			hostname: "example.com",
+			port:     8080,
+			protocol: gatewayv1.HTTPProtocolType,
 			expected: gatewayv1.Listener{
 				Name:     "example-com-http-8080",
 				Port:     8080,
@@ -150,10 +150,10 @@ func TestCreateListener(t *testing.T) {
 			},
 		},
 		{
-			name:        "HTTPS with hostname",
-			hostname:    "secure.example.com",
-			port:        8443,
-			protocol:    gatewayv1.HTTPSProtocolType,
+			name:     "HTTPS with hostname",
+			hostname: "secure.example.com",
+			port:     8443,
+			protocol: gatewayv1.HTTPSProtocolType,
 			expected: gatewayv1.Listener{
 				Name:     "secure-example-com-https-8443",
 				Port:     8443,
@@ -162,10 +162,10 @@ func TestCreateListener(t *testing.T) {
 			},
 		},
 		{
-			name:        "without hostname",
-			hostname:    "",
-			port:        9090,
-			protocol:    gatewayv1.HTTPProtocolType,
+			name:     "without hostname",
+			hostname: "",
+			port:     9090,
+			protocol: gatewayv1.HTTPProtocolType,
 			expected: gatewayv1.Listener{
 				Name:     "all-hosts-http-9090",
 				Port:     9090,
@@ -205,17 +205,17 @@ func TestListenPortsFeature(t *testing.T) {
 			annotations: map[string]string{
 				nginxListenPortsAnnotation: "8080,9090",
 			},
-			expectedListeners: 2,
+			expectedListeners: 3,
 			expectedHTTPPorts: []int32{8080, 9090},
-			expectedSSLPorts:  nil,
+			expectedSSLPorts:  []int32{443},
 		},
 		{
 			name: "custom SSL ports only",
 			annotations: map[string]string{
 				nginxListenPortsSSLAnnotation: "8443,9443",
 			},
-			expectedListeners: 2,
-			expectedHTTPPorts: nil,
+			expectedListeners: 3,
+			expectedHTTPPorts: []int32{80},
 			expectedSSLPorts:  []int32{8443, 9443},
 		},
 		{
@@ -340,87 +340,6 @@ func TestListenPortsFeature(t *testing.T) {
 				if listener.Hostname == nil || string(*listener.Hostname) != "example.com" {
 					t.Errorf("Expected hostname 'example.com', got %v", listener.Hostname)
 				}
-			}
-		})
-	}
-}
-
-func TestDeterminePortsToUse(t *testing.T) {
-	tests := []struct {
-		name                 string
-		customHTTPPorts      []int32
-		customSSLPorts       []int32
-		hasHTTPAnnotation    bool
-		hasSSLAnnotation     bool
-		expectedHTTPPorts    []int32
-		expectedHTTPSPorts   []int32
-	}{
-		{
-			name:                 "no annotations",
-			customHTTPPorts:      nil,
-			customSSLPorts:       nil,
-			hasHTTPAnnotation:    false,
-			hasSSLAnnotation:     false,
-			expectedHTTPPorts:    []int32{80},
-			expectedHTTPSPorts:   []int32{443},
-		},
-		{
-			name:                 "HTTP annotation only",
-			customHTTPPorts:      []int32{8080, 9090},
-			customSSLPorts:       nil,
-			hasHTTPAnnotation:    true,
-			hasSSLAnnotation:     false,
-			expectedHTTPPorts:    []int32{8080, 9090},
-			expectedHTTPSPorts:   nil,
-		},
-		{
-			name:                 "SSL annotation only",
-			customHTTPPorts:      nil,
-			customSSLPorts:       []int32{8443, 9443},
-			hasHTTPAnnotation:    false,
-			hasSSLAnnotation:     true,
-			expectedHTTPPorts:    nil,
-			expectedHTTPSPorts:   []int32{8443, 9443},
-		},
-		{
-			name:                 "both annotations",
-			customHTTPPorts:      []int32{8080},
-			customSSLPorts:       []int32{8443},
-			hasHTTPAnnotation:    true,
-			hasSSLAnnotation:     true,
-			expectedHTTPPorts:    []int32{8080},
-			expectedHTTPSPorts:   []int32{8443},
-		},
-		{
-			name:                 "empty HTTP ports",
-			customHTTPPorts:      []int32{},
-			customSSLPorts:       nil,
-			hasHTTPAnnotation:    true,
-			hasSSLAnnotation:     false,
-			expectedHTTPPorts:    []int32{},
-			expectedHTTPSPorts:   nil,
-		},
-		{
-			name:                 "empty SSL ports",
-			customHTTPPorts:      nil,
-			customSSLPorts:       []int32{},
-			hasHTTPAnnotation:    false,
-			hasSSLAnnotation:     true,
-			expectedHTTPPorts:    nil,
-			expectedHTTPSPorts:   []int32{},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := determinePortsToUse(tt.customHTTPPorts, tt.customSSLPorts, tt.hasHTTPAnnotation, tt.hasSSLAnnotation)
-
-			if !reflect.DeepEqual(result.HTTP, tt.expectedHTTPPorts) {
-				t.Errorf("Expected HTTP ports %v, got %v", tt.expectedHTTPPorts, result.HTTP)
-			}
-
-			if !reflect.DeepEqual(result.HTTPS, tt.expectedHTTPSPorts) {
-				t.Errorf("Expected HTTPS ports %v, got %v", tt.expectedHTTPSPorts, result.HTTPS)
 			}
 		})
 	}
