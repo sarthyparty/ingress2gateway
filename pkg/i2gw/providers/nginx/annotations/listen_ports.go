@@ -55,7 +55,7 @@ func ListenPortsFeature(ingresses []networkingv1.Ingress, servicePorts map[types
 			config.HTTPS = []int32{443} // Default HTTPS port
 		}
 
-		if ingress.Annotations[nginxListenPortsAnnotation] != "" || len(sslPorts) > 0 {
+		if len(httpPorts) > 0 || len(sslPorts) > 0 {
 			errs = append(errs, replaceGatewayPortsWithCustom(ingress, config, ir)...)
 		}
 	}
@@ -114,31 +114,16 @@ func replaceGatewayPortsWithCustom(ingress networkingv1.Ingress, portConfigurati
 
 	var filteredListeners []gatewayv1.Listener
 
-	hasHTTP80 := false
-	for _, p := range portConfiguration.HTTP {
-		if p == 80 {
-			hasHTTP80 = true
-			break
-		}
-	}
-	hasHTTPS443 := false
-	for _, p := range portConfiguration.HTTPS {
-		if p == 443 {
-			hasHTTPS443 = true
-			break
-		}
-	}
-
 	for _, existingListener := range gatewayContext.Gateway.Spec.Listeners {
 		keep := true
 		for _, rule := range ingress.Spec.Rules {
 			hostname := rule.Host
 			if existingListener.Hostname != nil && string(*existingListener.Hostname) == hostname {
-				if hasHTTP80 && existingListener.Port == 80 && existingListener.Protocol == gatewayv1.HTTPProtocolType {
+				if existingListener.Port == 80 && existingListener.Protocol == gatewayv1.HTTPProtocolType {
 					keep = false
 					break
 				}
-				if hasHTTPS443 && existingListener.Port == 443 && existingListener.Protocol == gatewayv1.HTTPSProtocolType {
+				if existingListener.Port == 443 && existingListener.Protocol == gatewayv1.HTTPSProtocolType {
 					keep = false
 					break
 				}
