@@ -266,7 +266,7 @@ func processGRPCServicesAnnotation(ingress networkingv1.Ingress, grpcServices st
 									if ingress.Spec.IngressClassName != nil {
 										return gatewayv1.ObjectName(*ingress.Spec.IngressClassName)
 									}
-									return gatewayv1.ObjectName("nginx")
+									return gatewayv1.ObjectName(NginxIngressClass)
 								}(),
 							},
 						},

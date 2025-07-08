@@ -190,5 +190,5 @@ func getGatewayClassName(ingress networkingv1.Ingress) string {
 	if ingress.Spec.IngressClassName != nil && *ingress.Spec.IngressClassName != "" {
 		return *ingress.Spec.IngressClassName
 	}
-	return "nginx"
+	return NginxIngressClass
 }

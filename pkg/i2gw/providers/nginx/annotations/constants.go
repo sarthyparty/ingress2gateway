@@ -48,3 +48,8 @@ const (
 	// Legacy SSL redirect annotation
 	legacySSLRedirectAnnotation = "ingress.kubernetes.io/ssl-redirect"
 )
+
+// NginxIngressClass class name
+const (
+	NginxIngressClass = "nginx"
+)
