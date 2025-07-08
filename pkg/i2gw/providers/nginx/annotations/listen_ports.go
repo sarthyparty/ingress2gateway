@@ -136,11 +136,21 @@ func replaceGatewayPortsWithCustom(ingress networkingv1.Ingress, portConfigurati
 
 	for _, rule := range ingress.Spec.Rules {
 		hostname := rule.Host
-		for _, port := range portConfiguration.HTTP {
-			filteredListeners = append(filteredListeners, createListener(hostname, port, gatewayv1.HTTPProtocolType))
-		}
+		
+		// Track used ports to avoid conflicts - HTTPS takes precedence over HTTP
+		usedPorts := make(map[int32]bool)
+		
+		// Add HTTPS listeners first (they take precedence)
 		for _, port := range portConfiguration.HTTPS {
 			filteredListeners = append(filteredListeners, createListener(hostname, port, gatewayv1.HTTPSProtocolType))
+			usedPorts[port] = true
+		}
+		
+		// Add HTTP listeners only if port not already used by HTTPS
+		for _, port := range portConfiguration.HTTP {
+			if !usedPorts[port] {
+				filteredListeners = append(filteredListeners, createListener(hostname, port, gatewayv1.HTTPProtocolType))
+			}
 		}
 	}
 

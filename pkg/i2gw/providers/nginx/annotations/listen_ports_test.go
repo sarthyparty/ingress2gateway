@@ -344,3 +344,219 @@ func TestListenPortsFeature(t *testing.T) {
 		})
 	}
 }
+
+func TestListenPortsReplacesDefaultListeners(t *testing.T) {
+	ingress := networkingv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-ingress",
+			Namespace: "default",
+			Annotations: map[string]string{
+				nginxListenPortsAnnotation:    "8080,9090",
+				nginxListenPortsSSLAnnotation: "8443",
+			},
+		},
+		Spec: networkingv1.IngressSpec{
+			IngressClassName: ptr.To("nginx"),
+			Rules: []networkingv1.IngressRule{
+				{
+					Host: "example.com",
+					IngressRuleValue: networkingv1.IngressRuleValue{
+						HTTP: &networkingv1.HTTPIngressRuleValue{
+							Paths: []networkingv1.HTTPIngressPath{
+								{
+									Path: "/",
+									Backend: networkingv1.IngressBackend{
+										Service: &networkingv1.IngressServiceBackend{
+											Name: "web-service",
+											Port: networkingv1.ServiceBackendPort{Number: 80},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Start with IR that has a Gateway with default listeners (simulating what common converter creates)
+	gatewayKey := types.NamespacedName{Namespace: "default", Name: "nginx"}
+	ir := intermediate.IR{
+		Gateways: map[types.NamespacedName]intermediate.GatewayContext{
+			gatewayKey: {
+				Gateway: gatewayv1.Gateway{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "nginx",
+						Namespace: "default",
+					},
+					Spec: gatewayv1.GatewaySpec{
+						GatewayClassName: "nginx",
+						Listeners: []gatewayv1.Listener{
+							{
+								Name:     "example-com-http",
+								Hostname: (*gatewayv1.Hostname)(ptr.To("example.com")),
+								Port:     80,
+								Protocol: gatewayv1.HTTPProtocolType,
+							},
+							{
+								Name:     "example-com-https",
+								Hostname: (*gatewayv1.Hostname)(ptr.To("example.com")),
+								Port:     443,
+								Protocol: gatewayv1.HTTPSProtocolType,
+							},
+						},
+					},
+				},
+			},
+		},
+		HTTPRoutes: make(map[types.NamespacedName]intermediate.HTTPRouteContext),
+	}
+
+	// Apply listen-ports feature
+	errs := ListenPortsFeature([]networkingv1.Ingress{ingress}, nil, &ir)
+	if len(errs) > 0 {
+		t.Fatalf("Unexpected errors: %v", errs)
+	}
+
+	// Verify Gateway was updated
+	gateway, exists := ir.Gateways[gatewayKey]
+	if !exists {
+		t.Fatal("Gateway should exist")
+	}
+
+	// Should have 3 listeners: 8080 HTTP, 9090 HTTP, 8443 HTTPS
+	expectedListeners := 3
+	if len(gateway.Gateway.Spec.Listeners) != expectedListeners {
+		t.Fatalf("Expected %d listeners, got %d", expectedListeners, len(gateway.Gateway.Spec.Listeners))
+	}
+
+	// Verify no default ports (80, 443) remain
+	for _, listener := range gateway.Gateway.Spec.Listeners {
+		if listener.Port == 80 || listener.Port == 443 {
+			t.Errorf("Default port %d should have been removed by listen-ports annotation", listener.Port)
+		}
+	}
+
+	// Verify expected custom ports are present
+	expectedPorts := map[int32]gatewayv1.ProtocolType{
+		8080: gatewayv1.HTTPProtocolType,
+		9090: gatewayv1.HTTPProtocolType,
+		8443: gatewayv1.HTTPSProtocolType,
+	}
+
+	foundPorts := make(map[int32]gatewayv1.ProtocolType)
+	for _, listener := range gateway.Gateway.Spec.Listeners {
+		foundPorts[int32(listener.Port)] = listener.Protocol
+		
+		// Verify hostname is set correctly
+		if listener.Hostname == nil || string(*listener.Hostname) != "example.com" {
+			t.Errorf("Expected hostname 'example.com', got %v", listener.Hostname)
+		}
+	}
+
+	for expectedPort, expectedProtocol := range expectedPorts {
+		if foundProtocol, exists := foundPorts[expectedPort]; !exists {
+			t.Errorf("Expected port %d not found", expectedPort)
+		} else if foundProtocol != expectedProtocol {
+			t.Errorf("Expected protocol %s for port %d, got %s", expectedProtocol, expectedPort, foundProtocol)
+		}
+	}
+}
+
+func TestListenPortsConflictResolution(t *testing.T) {
+	ingress := networkingv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-conflict",
+			Namespace: "default",
+			Annotations: map[string]string{
+				nginxListenPortsAnnotation:    "8080,8443,9090",
+				nginxListenPortsSSLAnnotation: "8443,9443",
+			},
+		},
+		Spec: networkingv1.IngressSpec{
+			IngressClassName: ptr.To("nginx"),
+			Rules: []networkingv1.IngressRule{
+				{
+					Host: "example.com",
+					IngressRuleValue: networkingv1.IngressRuleValue{
+						HTTP: &networkingv1.HTTPIngressRuleValue{
+							Paths: []networkingv1.HTTPIngressPath{
+								{
+									Path: "/",
+									Backend: networkingv1.IngressBackend{
+										Service: &networkingv1.IngressServiceBackend{
+											Name: "web-service",
+											Port: networkingv1.ServiceBackendPort{Number: 80},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	ir := intermediate.IR{
+		Gateways:   make(map[types.NamespacedName]intermediate.GatewayContext),
+		HTTPRoutes: make(map[types.NamespacedName]intermediate.HTTPRouteContext),
+	}
+
+	errs := ListenPortsFeature([]networkingv1.Ingress{ingress}, nil, &ir)
+	if len(errs) > 0 {
+		t.Fatalf("Unexpected errors: %v", errs)
+	}
+
+	if len(ir.Gateways) != 1 {
+		t.Fatalf("Expected 1 gateway, got %d", len(ir.Gateways))
+	}
+
+	var gateway gatewayv1.Gateway
+	for _, gwContext := range ir.Gateways {
+		gateway = gwContext.Gateway
+		break
+	}
+
+	// Should have 4 listeners: 8080 HTTP, 9090 HTTP, 8443 HTTPS, 9443 HTTPS
+	// Note: 8443 should be HTTPS only (not HTTP) due to conflict resolution
+	expectedListeners := 4
+	if len(gateway.Spec.Listeners) != expectedListeners {
+		t.Fatalf("Expected %d listeners, got %d", expectedListeners, len(gateway.Spec.Listeners))
+	}
+
+	// Verify no port conflicts (same port with different protocols)
+	portProtocols := make(map[int32][]gatewayv1.ProtocolType)
+	for _, listener := range gateway.Spec.Listeners {
+		port := int32(listener.Port)
+		portProtocols[port] = append(portProtocols[port], listener.Protocol)
+	}
+
+	for port, protocols := range portProtocols {
+		if len(protocols) > 1 {
+			t.Errorf("Port %d has conflicting protocols: %v", port, protocols)
+		}
+	}
+
+	// Verify specific expected configurations
+	expectedConfigs := map[int32]gatewayv1.ProtocolType{
+		8080: gatewayv1.HTTPProtocolType,  // HTTP only
+		9090: gatewayv1.HTTPProtocolType,  // HTTP only  
+		8443: gatewayv1.HTTPSProtocolType, // HTTPS takes precedence over HTTP
+		9443: gatewayv1.HTTPSProtocolType, // HTTPS only
+	}
+
+	foundConfigs := make(map[int32]gatewayv1.ProtocolType)
+	for _, listener := range gateway.Spec.Listeners {
+		foundConfigs[int32(listener.Port)] = listener.Protocol
+	}
+
+	for expectedPort, expectedProtocol := range expectedConfigs {
+		if foundProtocol, exists := foundConfigs[expectedPort]; !exists {
+			t.Errorf("Expected port %d not found", expectedPort)
+		} else if foundProtocol != expectedProtocol {
+			t.Errorf("Expected protocol %s for port %d, got %s", expectedProtocol, expectedPort, foundProtocol)
+		}
+	}
+}
