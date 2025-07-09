@@ -77,7 +77,6 @@ func processSSLServicesAnnotation(ingress networkingv1.Ingress, sslServices stri
 			Name:      policyName,
 		}
 
-		wellKnownCACerts := gatewayv1alpha3.WellKnownCACertificatesSystem
 		policy := gatewayv1alpha3.BackendTLSPolicy{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: gatewayv1alpha3.GroupVersion.String(),
@@ -102,13 +101,19 @@ func processSSLServicesAnnotation(ingress networkingv1.Ingress, sslServices stri
 					},
 				},
 				Validation: gatewayv1alpha3.BackendTLSPolicyValidation{
-					WellKnownCACertificates: &wellKnownCACerts,
-					Hostname:                getIngressHostname(ingress),
+					// Note: WellKnownCACertificates and Hostname fields are intentionally left empty
+					// These fields must be manually configured based on your backend service's TLS setup
 				},
 			},
 		}
 
 		ir.BackendTLSPolicies[policyKey] = policy
+	}
+
+	// Add warning about manual certificate configuration
+	if len(sslServiceSet) > 0 {
+		message := "nginx.org/ssl-services: BackendTLSPolicy created but requires manual configuration. You must set the 'validation.hostname' field to match your backend service's TLS certificate hostname, and configure appropriate CA certificates or certificateRefs for TLS verification."
+		notify(notifications.WarningNotification, message, &ingress)
 	}
 
 	return errs
@@ -127,15 +132,6 @@ func parseGRPCServiceMethod(path string) (service, method string) {
 	}
 
 	return service, method
-}
-
-// getIngressHostname extracts the hostname from the ingress rules
-func getIngressHostname(ingress networkingv1.Ingress) gatewayv1.PreciseHostname {
-	if len(ingress.Spec.Rules) > 0 && ingress.Spec.Rules[0].Host != "" {
-		return gatewayv1.PreciseHostname(ingress.Spec.Rules[0].Host)
-	}
-	notify(notifications.WarningNotification, "No hostname found in ingress rules", &ingress)
-	return ""
 }
 
 // processGRPCServicesAnnotation handles gRPC backend services
@@ -242,7 +238,7 @@ func processGRPCServicesAnnotation(ingress networkingv1.Ingress, grpcServices st
 				Name:      routeName,
 			}
 
-			// Create hostnames list
+			// Create a hostname list
 			var hostnames []gatewayv1.Hostname
 			if rule.Host != "" {
 				hostnames = []gatewayv1.Hostname{gatewayv1.Hostname(rule.Host)}
@@ -269,7 +265,7 @@ func processGRPCServicesAnnotation(ingress networkingv1.Ingress, grpcServices st
 									if ingress.Spec.IngressClassName != nil {
 										return gatewayv1.ObjectName(*ingress.Spec.IngressClassName)
 									}
-									return gatewayv1.ObjectName(NginxIngressClass)
+									return NginxIngressClass
 								}(),
 							},
 						},
@@ -281,7 +277,7 @@ func processGRPCServicesAnnotation(ingress networkingv1.Ingress, grpcServices st
 
 			ir.GRPCRoutes[routeKey] = grpcRoute
 
-			// Remove corresponding HTTPRoute since gRPC services should only have GRPCRoutes
+			// Remove the corresponding HTTPRoute since gRPC services should only have GRPCRoutes
 			if _, exists := ir.HTTPRoutes[routeKey]; exists {
 				delete(ir.HTTPRoutes, routeKey)
 			}

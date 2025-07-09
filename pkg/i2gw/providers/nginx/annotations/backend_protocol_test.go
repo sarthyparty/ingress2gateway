@@ -129,10 +129,6 @@ func TestSSLServicesAnnotation(t *testing.T) {
 						t.Errorf("Expected TargetRef Group '%s', got '%s'", gatewayv1.GroupName, policy.Spec.TargetRefs[0].Group)
 					}
 
-					if policy.Spec.Validation.Hostname != gatewayv1.PreciseHostname("example.com") {
-						t.Errorf("Expected hostname 'example.com', got '%s'", policy.Spec.Validation.Hostname)
-					}
-
 					if policy.Labels["app.kubernetes.io/managed-by"] != "ingress2gateway" {
 						t.Errorf("Expected managed-by label 'ingress2gateway', got '%s'", policy.Labels["app.kubernetes.io/managed-by"])
 					}
