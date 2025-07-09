@@ -18,6 +18,7 @@ package annotations
 
 import (
 	"fmt"
+	"github.com/kubernetes-sigs/ingress2gateway/pkg/i2gw/notifications"
 	"strings"
 
 	"github.com/kubernetes-sigs/ingress2gateway/pkg/i2gw/intermediate"
@@ -42,6 +43,11 @@ func BackendProtocolFeature(ingresses []networkingv1.Ingress, _ map[types.Namesp
 
 		if grpcServices, exists := ingress.Annotations[nginxGRPCServicesAnnotation]; exists && grpcServices != "" {
 			errs = append(errs, processGRPCServicesAnnotation(ingress, grpcServices, ir)...)
+		}
+
+		if webSocketServices, exists := ingress.Annotations[nginxWebSocketServicesAnnotation]; exists && webSocketServices != "" {
+			message := "nginx.org/websocket-services: Please make sure the services are configured to support WebSocket connections. This annotation does not create any Gateway API resources."
+			notify(notifications.InfoNotification, message, &ingress)
 		}
 	}
 
@@ -137,11 +143,11 @@ func processGRPCServicesAnnotation(ingress networkingv1.Ingress, grpcServices st
 
 	// Parse comma-separated service names that should use gRPC
 	services := strings.Split(grpcServices, ",")
-	grpcServiceSet := make(map[string]bool)
+	grpcServiceSet := make(map[string]struct{})
 	for _, service := range services {
 		service = strings.TrimSpace(service)
 		if service != "" {
-			grpcServiceSet[service] = true
+			grpcServiceSet[service] = struct{}{}
 		}
 	}
 
@@ -162,7 +168,7 @@ func processGRPCServicesAnnotation(ingress networkingv1.Ingress, grpcServices st
 			Name:      serviceName,
 		}
 
-		// Get or create provider-specific service IR
+		// Get or create a provider-specific service IR
 		serviceIR := ir.Services[serviceKey]
 		if serviceIR.Nginx == nil {
 			serviceIR.Nginx = &intermediate.NginxServiceIR{}
@@ -182,11 +188,11 @@ func processGRPCServicesAnnotation(ingress networkingv1.Ingress, grpcServices st
 		// Check each path to see if it uses a gRPC service
 		for _, path := range rule.HTTP.Paths {
 			serviceName := path.Backend.Service.Name
-			if grpcServiceSet[serviceName] {
+			if _, exists := grpcServiceSet[serviceName]; exists {
 				// Create a GRPCRoute rule for this path
 				grpcMatch := gatewayv1.GRPCRouteMatch{}
 
-				// Convert HTTP path to gRPC service/method match
+				// Convert an HTTP path to gRPC service/method match
 				if path.Path != "" {
 					// Parse gRPC service and method from path
 					// Expected format: /service.name/Method or /service.name
@@ -201,7 +207,7 @@ func processGRPCServicesAnnotation(ingress networkingv1.Ingress, grpcServices st
 					}
 				}
 
-				// Create backend reference
+				// Create a backend reference
 				var port *gatewayv1.PortNumber
 				if path.Backend.Service.Port.Number != 0 {
 					portNum := gatewayv1.PortNumber(path.Backend.Service.Port.Number)

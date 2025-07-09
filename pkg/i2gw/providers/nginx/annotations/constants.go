@@ -23,7 +23,6 @@ const (
 	// Standard annotations that map directly to Gateway API
 	nginxRewritesAnnotation        = nginxOrgPrefix + "rewrites"
 	nginxRedirectToHTTPSAnnotation = nginxOrgPrefix + "redirect-to-https"
-	// nginxServerAliasAnnotation removed - unfinished implementation
 
 	// Header manipulation annotations
 	nginxProxyHideHeadersAnnotation = nginxOrgPrefix + "proxy-hide-headers"
@@ -35,15 +34,12 @@ const (
 	nginxListenPortsSSLAnnotation = nginxOrgPrefix + "listen-ports-ssl"
 
 	// Backend service annotations
-	nginxSSLServicesAnnotation  = nginxOrgPrefix + "ssl-services"
-	nginxGRPCServicesAnnotation = nginxOrgPrefix + "grpc-services"
+	nginxSSLServicesAnnotation       = nginxOrgPrefix + "ssl-services"
+	nginxGRPCServicesAnnotation      = nginxOrgPrefix + "grpc-services"
+	nginxWebSocketServicesAnnotation = nginxOrgPrefix + "websocket-services"
 
 	// Path matching annotations
 	nginxPathRegexAnnotation = nginxOrgPrefix + "path-regex"
-
-	// Security annotations removed - unfinished implementations
-	// nginxHSTSAnnotation, nginxHSTSMaxAgeAnnotation, nginxHSTSIncludeSubdomainsAnnotation
-	// nginxBasicAuthSecretAnnotation, nginxBasicAuthRealmAnnotation
 
 	// Legacy SSL redirect annotation
 	legacySSLRedirectAnnotation = "ingress.kubernetes.io/ssl-redirect"

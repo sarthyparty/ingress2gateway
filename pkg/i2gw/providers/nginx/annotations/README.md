@@ -7,13 +7,11 @@ This directory contains the implementation of [NGINX Inc's Ingress Controller](h
 ## Structure
 
 - **`constants.go`** - All annotation constants and schema definitions
-- **`backend_protocol.go`** - Backend protocol annotations (`ssl-services`, `grpc-services`)
+- **`backend_protocol.go`** - Backend protocol annotations (`ssl-services`, `grpc-services`, `websocket-services`)
 - **`header_manipulation.go`** - Header manipulation annotations (`hide-headers`, `proxy-set-headers`, etc.)
 - **`listen_ports.go`** - Custom port listeners (`listen-ports`, `listen-ports-ssl`)
 - **`path_matching.go`** - Path regex matching (`path-regex`)
 - **`path_rewrite.go`** - URL rewriting (`rewrites`)
-- **`security.go`** - REMOVED: Unfinished security features (HSTS, basic auth)
-- **`server_alias.go`** - REMOVED: Unfinished server alias implementation
 - **`ssl_redirect.go`** - SSL/HTTPS redirects (`redirect-to-https`)
 
 ## Exported Functions
@@ -25,8 +23,6 @@ Each annotation file exports a main feature function:
 - `ListenPortsFeature` - Processes custom port listener annotations
 - `PathRegexFeature` - Processes path regex annotations
 - `RewriteTargetFeature` - Processes URL rewrite annotations
-- `SecurityFeature` - REMOVED: Unfinished implementation
-- `ServerAliasFeature` - REMOVED: Unfinished implementation
 - `SSLRedirectFeature` - Processes SSL redirect annotations
 
 ## Testing

@@ -13,12 +13,14 @@ This provider converts [NGINX Inc's Ingress Controller](https://github.com/nginx
 
 * `nginx.org/ssl-services` - SSL/TLS backend connections
 * `nginx.org/grpc-services` - gRPC backend connections  
+* `nginx.org/websocket-services` - WebSocket backend connections
 * `nginx.org/proxy-hide-headers` - Hide headers from responses
 * `nginx.org/proxy-set-headers` - Set custom headers
 * `nginx.org/listen-ports` - Custom HTTP ports
 * `nginx.org/listen-ports-ssl` - Custom HTTPS ports
 * `nginx.org/path-regex` - Regex path matching
 * `nginx.org/rewrites` - URL rewriting
+* `nginx.org/redirect-to-https` - SSL/HTTPS redirects
 
 ## Usage
 
@@ -36,11 +38,13 @@ ingress2gateway print --providers=nginx --input-file=nginx-ingress.yaml
 |---|-----------------------------------|
 | `nginx.org/ssl-services` | BackendTLSPolicy                  |
 | `nginx.org/grpc-services` | GRPCRoute                         |
+| `nginx.org/websocket-services` | Informational notification only  |
 | `nginx.org/proxy-hide-headers` | HTTPRoute ResponseHeaderModifier  |
 | `nginx.org/proxy-set-headers` | HTTPRoute RequestHeaderModifier   |
 | `nginx.org/rewrites` | HTTPRoute URLRewrite filter       |
 | `nginx.org/listen-ports*` | Gateway custom listeners          |
 | `nginx.org/path-regex` | HTTPRoute RegularExpression paths |
+| `nginx.org/redirect-to-https` | HTTPRoute RequestRedirect filter  |
 
 ## Examples
 
@@ -48,6 +52,10 @@ ingress2gateway print --providers=nginx --input-file=nginx-ingress.yaml
 # SSL Backend
 annotations:
   nginx.org/ssl-services: "backend-service"
+
+# WebSocket Backend
+annotations:
+  nginx.org/websocket-services: "websocket-service"
 
 # Header Manipulation  
 annotations:
@@ -66,6 +74,10 @@ annotations:
 # Regex Paths
 annotations:
   nginx.org/path-regex: "true"
+
+# SSL Redirect
+annotations:
+  nginx.org/redirect-to-https: "true"
 ```
 
 ## Contributing
