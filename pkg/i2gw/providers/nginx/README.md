@@ -7,7 +7,7 @@ This provider converts [NGINX Inc's Ingress Controller](https://github.com/nginx
 ## Supported Resources
 
 * **Ingress** - Core Kubernetes Ingress resources with NGINX-specific annotations
-* **ConfigMap** - NGINX configuration maps referenced by Ingress resources
+* **Service** - Kubernetes Services referenced by Ingress backend configurations
 
 ## Supported Annotations
 
@@ -21,6 +21,7 @@ This provider converts [NGINX Inc's Ingress Controller](https://github.com/nginx
 * `nginx.org/path-regex` - Regex path matching
 * `nginx.org/rewrites` - URL rewriting
 * `nginx.org/redirect-to-https` - SSL/HTTPS redirects
+* `ingress.kubernetes.io/ssl-redirect` - Legacy SSL redirect (for compatibility)
 
 ## Usage
 
@@ -45,6 +46,14 @@ ingress2gateway print --providers=nginx --input-file=nginx-ingress.yaml
 | `nginx.org/listen-ports*` | Gateway custom listeners          |
 | `nginx.org/path-regex` | HTTPRoute RegularExpression paths |
 | `nginx.org/redirect-to-https` | HTTPRoute RequestRedirect filter  |
+| `ingress.kubernetes.io/ssl-redirect` | HTTPRoute RequestRedirect filter  |
+
+## SSL Redirect Behavior
+
+The provider supports two SSL redirect annotations with different behaviors:
+
+* **`nginx.org/redirect-to-https`** - Creates conditional redirects that only redirect HTTP traffic (identified by `X-Forwarded-Proto: http` header)
+* **`ingress.kubernetes.io/ssl-redirect`** - Creates unconditional redirects that redirect all traffic to HTTPS
 
 ## Examples
 
@@ -75,9 +84,13 @@ annotations:
 annotations:
   nginx.org/path-regex: "true"
 
-# SSL Redirect
+# SSL Redirect (Modern)
 annotations:
   nginx.org/redirect-to-https: "true"
+
+# SSL Redirect (Legacy)
+annotations:
+  ingress.kubernetes.io/ssl-redirect: "true"
 ```
 
 ## Contributing

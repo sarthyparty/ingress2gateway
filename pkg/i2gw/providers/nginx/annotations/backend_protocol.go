@@ -134,7 +134,8 @@ func getIngressHostname(ingress networkingv1.Ingress) gatewayv1.PreciseHostname 
 	if len(ingress.Spec.Rules) > 0 && ingress.Spec.Rules[0].Host != "" {
 		return gatewayv1.PreciseHostname(ingress.Spec.Rules[0].Host)
 	}
-	return "backend.local"
+	notify(notifications.WarningNotification, "No hostname found in ingress rules", &ingress)
+	return ""
 }
 
 // processGRPCServicesAnnotation handles gRPC backend services
