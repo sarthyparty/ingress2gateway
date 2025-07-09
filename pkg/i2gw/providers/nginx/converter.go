@@ -34,12 +34,13 @@ type resourcesToIRConverter struct {
 func newResourcesToIRConverter() *resourcesToIRConverter {
 	return &resourcesToIRConverter{
 		featureParsers: []i2gw.FeatureParser{
+			annotations.ListenPortsFeature,
 			annotations.RewriteTargetFeature,
 			annotations.HeaderManipulationFeature,
 			annotations.BackendProtocolFeature,
 			annotations.PathRegexFeature,
-			annotations.ListenPortsFeature,
 			annotations.SSLRedirectFeature,
+			annotations.HSTSFeature,
 		},
 		implementationSpecificOptions: i2gw.ProviderImplementationSpecificOptions{},
 	}

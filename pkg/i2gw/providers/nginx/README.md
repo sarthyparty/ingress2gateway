@@ -22,6 +22,9 @@ This provider converts [NGINX Inc's Ingress Controller](https://github.com/nginx
 * `nginx.org/rewrites` - URL rewriting
 * `nginx.org/redirect-to-https` - SSL/HTTPS redirects
 * `ingress.kubernetes.io/ssl-redirect` - Legacy SSL redirect (for compatibility)
+* `nginx.org/hsts` - HTTP Strict Transport Security headers
+* `nginx.org/hsts-max-age` - HSTS max-age directive
+* `nginx.org/hsts-include-subdomains` - HSTS includeSubDomains directive
 
 ## Usage
 
@@ -47,6 +50,7 @@ ingress2gateway print --providers=nginx --input-file=nginx-ingress.yaml
 | `nginx.org/path-regex` | HTTPRoute RegularExpression paths |
 | `nginx.org/redirect-to-https` | HTTPRoute RequestRedirect filter  |
 | `ingress.kubernetes.io/ssl-redirect` | HTTPRoute RequestRedirect filter  |
+| `nginx.org/hsts*` | HTTPRoute ResponseHeaderModifier |
 
 ## SSL Redirect Behavior
 
@@ -91,6 +95,12 @@ annotations:
 # SSL Redirect (Legacy)
 annotations:
   ingress.kubernetes.io/ssl-redirect: "true"
+
+# HSTS Security Headers
+annotations:
+  nginx.org/hsts: "true"
+  nginx.org/hsts-max-age: "31536000"
+  nginx.org/hsts-include-subdomains: "true"
 ```
 
 ## Contributing
