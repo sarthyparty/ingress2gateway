@@ -33,7 +33,6 @@ func TestSSLRedirectFeature(t *testing.T) {
 		name         string
 		annotations  map[string]string
 		expectRedirect bool
-		redirectType string
 	}{
 		{
 			name: "modern NGINX redirect annotation",
@@ -41,7 +40,6 @@ func TestSSLRedirectFeature(t *testing.T) {
 				nginxRedirectToHTTPSAnnotation: "true",
 			},
 			expectRedirect: true,
-			redirectType:   "conditional",
 		},
 		{
 			name: "legacy SSL redirect annotation",
@@ -49,7 +47,6 @@ func TestSSLRedirectFeature(t *testing.T) {
 				legacySSLRedirectAnnotation: "true",
 			},
 			expectRedirect: true,
-			redirectType:   "unconditional",
 		},
 		{
 			name:           "no annotations",
@@ -195,25 +192,26 @@ func TestSSLRedirectFeature(t *testing.T) {
 				t.Error("Expected parentRefs sectionName to be set")
 			}
 			
-			// Verify redirect behavior based on type
-			if tt.redirectType == "conditional" {
-				// Should have redirect rule with header match
-				if len(httpRoute.Spec.Rules) < 2 {
-					t.Fatal("Expected at least 2 rules for conditional redirect")
+			// Verify redirect rule was added
+			if len(httpRoute.Spec.Rules) < 2 {
+				t.Fatal("Expected at least 2 rules (redirect + original)")
+			}
+			
+			// First rule should be the redirect rule
+			redirectRule := httpRoute.Spec.Rules[0]
+			if len(redirectRule.Filters) == 0 || redirectRule.Filters[0].Type != gatewayv1.HTTPRouteFilterRequestRedirect {
+				t.Error("Expected RequestRedirect filter in first rule")
+			}
+			
+			// Verify redirect filter configuration
+			if redirectRule.Filters[0].RequestRedirect == nil {
+				t.Error("Expected RequestRedirect to be configured")
+			} else {
+				if redirectRule.Filters[0].RequestRedirect.Scheme == nil || *redirectRule.Filters[0].RequestRedirect.Scheme != "https" {
+					t.Error("Expected redirect scheme to be 'https'")
 				}
-				redirectRule := httpRoute.Spec.Rules[0]
-				if len(redirectRule.Filters) == 0 || redirectRule.Filters[0].Type != gatewayv1.HTTPRouteFilterRequestRedirect {
-					t.Error("Expected RequestRedirect filter")
-				}
-				if len(redirectRule.Matches) == 0 || len(redirectRule.Matches[0].Headers) == 0 {
-					t.Error("Expected header match for conditional redirect")
-				}
-			} else if tt.redirectType == "unconditional" {
-				// All rules should have redirect filters
-				for _, rule := range httpRoute.Spec.Rules {
-					if len(rule.Filters) == 0 || rule.Filters[0].Type != gatewayv1.HTTPRouteFilterRequestRedirect {
-						t.Error("Expected all rules to have RequestRedirect filter")
-					}
+				if redirectRule.Filters[0].RequestRedirect.StatusCode == nil || *redirectRule.Filters[0].RequestRedirect.StatusCode != 301 {
+					t.Error("Expected redirect status code to be 301")
 				}
 			}
 		})

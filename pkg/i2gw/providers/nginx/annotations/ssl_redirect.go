@@ -26,8 +26,8 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-// SSLRedirectFeature converts SSL redirect annotations to Gateway API filters,
-// handling the distinction between conditional and unconditional redirects.
+// SSLRedirectFeature converts SSL redirect annotations to Gateway API RequestRedirect filters.
+// Both nginx.org/redirect-to-https and ingress.kubernetes.io/ssl-redirect function identically.
 func SSLRedirectFeature(ingresses []networkingv1.Ingress, _ map[types.NamespacedName]map[string]int32, ir *intermediate.IR) field.ErrorList {
 	var errs field.ErrorList
 
@@ -35,12 +35,8 @@ func SSLRedirectFeature(ingresses []networkingv1.Ingress, _ map[types.Namespaced
 		modernRedirect, modernExists := ingress.Annotations[nginxRedirectToHTTPSAnnotation]
 		legacyRedirect, legacyExists := ingress.Annotations[legacySSLRedirectAnnotation]
 
-		var redirectType string
-		if modernExists && modernRedirect == "true" {
-			redirectType = "conditional"
-		} else if legacyExists && legacyRedirect == "true" {
-			redirectType = "unconditional"
-		} else {
+		// Check if either SSL redirect annotation is enabled
+		if !((modernExists && modernRedirect == "true") || (legacyExists && legacyRedirect == "true")) {
 			continue
 		}
 
@@ -60,46 +56,19 @@ func SSLRedirectFeature(ingresses []networkingv1.Ingress, _ map[types.Namespaced
 				httpRouteContext.HTTPRoute.Spec.ParentRefs[i].SectionName = (*gatewayv1.SectionName)(&httpListenerName)
 			}
 
-			switch redirectType {
-			case "conditional":
-				redirectRule := gatewayv1.HTTPRouteRule{
-					Matches: []gatewayv1.HTTPRouteMatch{
-						{
-							Headers: []gatewayv1.HTTPHeaderMatch{
-								{
-									Type:  ptr.To(gatewayv1.HeaderMatchExact),
-									Name:  "X-Forwarded-Proto",
-									Value: "http",
-								},
-							},
+			// Add redirect rule at the beginning to redirect all HTTP traffic to HTTPS
+			redirectRule := gatewayv1.HTTPRouteRule{
+				Filters: []gatewayv1.HTTPRouteFilter{
+					{
+						Type: gatewayv1.HTTPRouteFilterRequestRedirect,
+						RequestRedirect: &gatewayv1.HTTPRequestRedirectFilter{
+							Scheme:     ptr.To("https"),
+							StatusCode: ptr.To(301),
 						},
 					},
-					Filters: []gatewayv1.HTTPRouteFilter{
-						{
-							Type: gatewayv1.HTTPRouteFilterRequestRedirect,
-							RequestRedirect: &gatewayv1.HTTPRequestRedirectFilter{
-								Scheme:     ptr.To("https"),
-								StatusCode: ptr.To(301),
-							},
-						},
-					},
-				}
-				httpRouteContext.HTTPRoute.Spec.Rules = append([]gatewayv1.HTTPRouteRule{redirectRule}, httpRouteContext.HTTPRoute.Spec.Rules...)
-
-			case "unconditional":
-				for i := range httpRouteContext.HTTPRoute.Spec.Rules {
-					httpRouteContext.HTTPRoute.Spec.Rules[i].Filters = []gatewayv1.HTTPRouteFilter{
-						{
-							Type: gatewayv1.HTTPRouteFilterRequestRedirect,
-							RequestRedirect: &gatewayv1.HTTPRequestRedirectFilter{
-								Scheme:     ptr.To("https"),
-								StatusCode: ptr.To(301),
-							},
-						},
-					}
-					httpRouteContext.HTTPRoute.Spec.Rules[i].BackendRefs = nil
-				}
+				},
 			}
+			httpRouteContext.HTTPRoute.Spec.Rules = append([]gatewayv1.HTTPRouteRule{redirectRule}, httpRouteContext.HTTPRoute.Spec.Rules...)
 
 			ir.HTTPRoutes[routeKey] = httpRouteContext
 		}

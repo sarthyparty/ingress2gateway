@@ -45,11 +45,6 @@ spec:
         scheme: https
         statusCode: 301
       type: RequestRedirect
-    matches:
-    - headers:
-      - name: X-Forwarded-Proto
-        type: Exact
-        value: http
   - backendRefs:
     - name: secure-service
       port: 80

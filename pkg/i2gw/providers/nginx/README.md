@@ -54,10 +54,10 @@ ingress2gateway print --providers=nginx --input-file=nginx-ingress.yaml
 
 ## SSL Redirect Behavior
 
-The provider supports two SSL redirect annotations with different behaviors:
+The provider supports two SSL redirect annotations with identical behavior:
 
-* **`nginx.org/redirect-to-https`** - Creates conditional redirects that only redirect HTTP traffic (identified by `X-Forwarded-Proto: http` header)
-* **`ingress.kubernetes.io/ssl-redirect`** - Creates unconditional redirects that redirect all traffic to HTTPS
+* **`nginx.org/redirect-to-https`** - Redirects all HTTP traffic to HTTPS with a 301 status code
+* **`ingress.kubernetes.io/ssl-redirect`** - Redirects all HTTP traffic to HTTPS with a 301 status code (legacy compatibility)
 
 ## Examples
 
