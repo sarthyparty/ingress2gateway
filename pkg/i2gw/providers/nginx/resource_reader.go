@@ -25,14 +25,9 @@ import (
 	"github.com/kubernetes-sigs/ingress2gateway/pkg/i2gw/providers/common"
 )
 
-// CommonNginxIngressClasses contains NGINX IngressClass names
-var CommonNginxIngressClasses = sets.New(
+// NginxIngressClasses contains NGINX IngressClass names
+var NginxIngressClasses = sets.New(
 	"nginx",
-	"nic",
-	"nginx-controller",
-	"nginx-ingress",
-	"nginx-inc",
-	"nginx-ingress-controller",
 )
 
 type resourceReader struct {
@@ -50,7 +45,7 @@ func newResourceReader(conf *i2gw.ProviderConf) *resourceReader {
 func (r *resourceReader) readResourcesFromCluster(ctx context.Context) (*storage, error) {
 	storage := newResourceStorage()
 
-	ingresses, err := common.ReadIngressesFromCluster(ctx, r.conf.Client, CommonNginxIngressClasses)
+	ingresses, err := common.ReadIngressesFromCluster(ctx, r.conf.Client, NginxIngressClasses)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +64,7 @@ func (r *resourceReader) readResourcesFromCluster(ctx context.Context) (*storage
 func (r *resourceReader) readResourcesFromFile(filename string) (*storage, error) {
 	storage := newResourceStorage()
 
-	ingresses, err := common.ReadIngressesFromFile(filename, r.conf.Namespace, CommonNginxIngressClasses)
+	ingresses, err := common.ReadIngressesFromFile(filename, r.conf.Namespace, NginxIngressClasses)
 	if err != nil {
 		return nil, err
 	}
