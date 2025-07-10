@@ -59,11 +59,11 @@ func processSSLServicesAnnotation(ingress networkingv1.Ingress, sslServices stri
 	var errs field.ErrorList
 
 	services := strings.Split(sslServices, ",")
-	sslServiceSet := make(map[string]bool)
+	sslServiceSet := make(map[string]struct{})
 	for _, service := range services {
 		service = strings.TrimSpace(service)
 		if service != "" {
-			sslServiceSet[service] = true
+			sslServiceSet[service] = struct{}{}
 		}
 	}
 

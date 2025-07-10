@@ -116,11 +116,11 @@ func TestSSLServicesAnnotation(t *testing.T) {
 				t.Errorf("Expected %d BackendTLSPolicies, got %d", tt.expectedPolicies, len(ir.BackendTLSPolicies))
 			}
 
-			serviceNames := make(map[string]bool)
+			serviceNames := make(map[string]struct{})
 			for _, policy := range ir.BackendTLSPolicies {
 				if len(policy.Spec.TargetRefs) > 0 {
 					serviceName := string(policy.Spec.TargetRefs[0].Name)
-					serviceNames[serviceName] = true
+					serviceNames[serviceName] = struct{}{}
 
 					if policy.Spec.TargetRefs[0].Kind != "Service" {
 						t.Errorf("Expected TargetRef Kind 'Service', got '%s'", policy.Spec.TargetRefs[0].Kind)
@@ -140,7 +140,7 @@ func TestSSLServicesAnnotation(t *testing.T) {
 
 			// Verify all expected services are present
 			for _, expectedService := range tt.expectedServices {
-				if !serviceNames[expectedService] {
+				if _, exists := serviceNames[expectedService]; !exists {
 					t.Errorf("Expected BackendTLSPolicy for service '%s' not found", expectedService)
 				}
 			}
