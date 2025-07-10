@@ -54,3 +54,10 @@ const (
 const (
 	NginxIngressClass = "nginx"
 )
+
+// Resource kind constants
+const (
+	BackendTLSPolicyKind = "BackendTLSPolicy"
+	ServiceKind          = "Service"
+	GRPCRouteKind        = "GRPCRoute"
+)

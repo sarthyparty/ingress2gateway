@@ -80,7 +80,7 @@ func processSSLServicesAnnotation(ingress networkingv1.Ingress, sslServices stri
 		policy := gatewayv1alpha3.BackendTLSPolicy{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: gatewayv1alpha3.GroupVersion.String(),
-				Kind:       "BackendTLSPolicy",
+				Kind:       BackendTLSPolicyKind,
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      policyName,
@@ -95,7 +95,7 @@ func processSSLServicesAnnotation(ingress networkingv1.Ingress, sslServices stri
 					{
 						LocalPolicyTargetReference: gatewayv1alpha2.LocalPolicyTargetReference{
 							Group: gatewayv1.GroupName,
-							Kind:  "Service",
+							Kind:  ServiceKind,
 							Name:  gatewayv1.ObjectName(serviceName),
 						},
 					},
@@ -112,7 +112,7 @@ func processSSLServicesAnnotation(ingress networkingv1.Ingress, sslServices stri
 
 	// Add warning about manual certificate configuration
 	if len(sslServiceSet) > 0 {
-		message := "nginx.org/ssl-services: BackendTLSPolicy created but requires manual configuration. You must set the 'validation.hostname' field to match your backend service's TLS certificate hostname, and configure appropriate CA certificates or certificateRefs for TLS verification."
+		message := "nginx.org/ssl-services: " + BackendTLSPolicyKind + " created but requires manual configuration. You must set the 'validation.hostname' field to match your backend service's TLS certificate hostname, and configure appropriate CA certificates or certificateRefs for TLS verification."
 		notify(notifications.WarningNotification, message, &ingress)
 	}
 
@@ -247,7 +247,7 @@ func processGRPCServicesAnnotation(ingress networkingv1.Ingress, grpcServices st
 			grpcRoute := gatewayv1.GRPCRoute{
 				TypeMeta: metav1.TypeMeta{
 					APIVersion: gatewayv1.GroupVersion.String(),
-					Kind:       "GRPCRoute",
+					Kind:       GRPCRouteKind,
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      routeName,
