@@ -37,10 +37,10 @@ func newResourcesToIRConverter() *resourcesToIRConverter {
 			annotations.ListenPortsFeature,
 			annotations.RewriteTargetFeature,
 			annotations.HeaderManipulationFeature,
-			annotations.BackendProtocolFeature,
 			annotations.PathRegexFeature,
 			annotations.SSLRedirectFeature,
 			annotations.HSTSFeature,
+			annotations.BackendProtocolFeature,
 		},
 		implementationSpecificOptions: i2gw.ProviderImplementationSpecificOptions{},
 	}

@@ -174,25 +174,33 @@ func processGRPCServicesAnnotation(ingress networkingv1.Ingress, grpcServices st
 		ir.Services[serviceKey] = serviceIR
 	}
 
-	// Create GRPCRoute for ingress rules that use gRPC services
+	// Process each ingress rule that uses gRPC services
 	for _, rule := range ingress.Spec.Rules {
 		if rule.HTTP == nil {
 			continue
 		}
 
-		var grpcRouteRules []gatewayv1.GRPCRouteRule
+		routeName := common.RouteName(ingress.Name, rule.Host)
+		routeKey := types.NamespacedName{
+			Namespace: ingress.Namespace,
+			Name:      routeName,
+		}
 
-		// Check each path to see if it uses a gRPC service
+		var grpcRouteRules []gatewayv1.GRPCRouteRule
+		var remainingHTTPRules []gatewayv1.HTTPRouteRule
+
+		// Get existing HTTPRoute to copy filters and check for rules
+		httpRouteContext, httpRouteExists := ir.HTTPRoutes[routeKey]
+
+		// Separate gRPC paths from non-gRPC paths
 		for _, path := range rule.HTTP.Paths {
 			serviceName := path.Backend.Service.Name
 			if _, exists := grpcServiceSet[serviceName]; exists {
-				// Create a GRPCRoute rule for this path
+				// This path uses a gRPC service - create GRPCRoute rule
 				grpcMatch := gatewayv1.GRPCRouteMatch{}
 
-				// Convert an HTTP path to gRPC service/method match
+				// Convert HTTP path to gRPC service/method match
 				if path.Path != "" {
-					// Parse gRPC service and method from path
-					// Expected format: /service.name/Method or /service.name
 					service, method := parseGRPCServiceMethod(path.Path)
 					if service != "" {
 						grpcMatch.Method = &gatewayv1.GRPCMethodMatch{
@@ -204,7 +212,7 @@ func processGRPCServicesAnnotation(ingress networkingv1.Ingress, grpcServices st
 					}
 				}
 
-				// Create a backend reference
+				// Create backend reference
 				var port *gatewayv1.PortNumber
 				if path.Backend.Service.Port.Number != 0 {
 					portNum := gatewayv1.PortNumber(path.Backend.Service.Port.Number)
@@ -220,8 +228,16 @@ func processGRPCServicesAnnotation(ingress networkingv1.Ingress, grpcServices st
 					},
 				}
 
+				// Copy filters from HTTPRoute to GRPCRoute rule
+				var grpcFilters []gatewayv1.GRPCRouteFilter
+				if httpRouteExists {
+					// Find the corresponding HTTP rule for this path to copy its filters
+					grpcFilters = findAndConvertFiltersForGRPCPath(httpRouteContext.HTTPRoute.Spec.Rules, path.Path)
+				}
+
 				grpcRule := gatewayv1.GRPCRouteRule{
 					Matches:     []gatewayv1.GRPCRouteMatch{grpcMatch},
+					Filters:     grpcFilters,
 					BackendRefs: []gatewayv1.GRPCBackendRef{backendRef},
 				}
 
@@ -231,14 +247,6 @@ func processGRPCServicesAnnotation(ingress networkingv1.Ingress, grpcServices st
 
 		// Create GRPCRoute if we have any gRPC rules
 		if len(grpcRouteRules) > 0 {
-			// Use the same route name as HTTPRoute to replace it
-			routeName := common.RouteName(ingress.Name, rule.Host)
-			routeKey := types.NamespacedName{
-				Namespace: ingress.Namespace,
-				Name:      routeName,
-			}
-
-			// Create a hostname list
 			var hostnames []gatewayv1.Hostname
 			if rule.Host != "" {
 				hostnames = []gatewayv1.Hostname{gatewayv1.Hostname(rule.Host)}
@@ -277,12 +285,103 @@ func processGRPCServicesAnnotation(ingress networkingv1.Ingress, grpcServices st
 
 			ir.GRPCRoutes[routeKey] = grpcRoute
 
-			// Remove the corresponding HTTPRoute since gRPC services should only have GRPCRoutes
-			if _, exists := ir.HTTPRoutes[routeKey]; exists {
-				delete(ir.HTTPRoutes, routeKey)
+			// Remove HTTP rules that correspond to gRPC services from the HTTPRoute
+			if httpRouteExists {
+				remainingHTTPRules = removeGRPCRulesFromHTTPRoute(&httpRouteContext.HTTPRoute, grpcServiceSet)
+
+				// If no rules remain, remove the entire HTTPRoute
+				if len(remainingHTTPRules) == 0 {
+					delete(ir.HTTPRoutes, routeKey)
+				} else {
+					// Update HTTPRoute with remaining rules
+					httpRouteContext.HTTPRoute.Spec.Rules = remainingHTTPRules
+					ir.HTTPRoutes[routeKey] = httpRouteContext
+				}
 			}
 		}
 	}
 
 	return errs
+}
+
+// findAndConvertFiltersForGRPCPath finds the HTTP rule that matches the given path and converts its filters to gRPC filters
+func findAndConvertFiltersForGRPCPath(httpRules []gatewayv1.HTTPRouteRule, grpcPath string) []gatewayv1.GRPCRouteFilter {
+	// Find the HTTP rule that contains this path
+	for _, httpRule := range httpRules {
+		for _, match := range httpRule.Matches {
+			if match.Path != nil && match.Path.Value != nil && *match.Path.Value == grpcPath {
+				// Found the matching rule, convert its filters
+				return convertHTTPFiltersToGRPCFilters(httpRule.Filters)
+			}
+		}
+	}
+	return nil
+}
+
+// convertHTTPFiltersToGRPCFilters converts a list of HTTPRoute filters to GRPCRoute filters
+func convertHTTPFiltersToGRPCFilters(httpFilters []gatewayv1.HTTPRouteFilter) []gatewayv1.GRPCRouteFilter {
+	var grpcFilters []gatewayv1.GRPCRouteFilter
+
+	for _, httpFilter := range httpFilters {
+		var grpcFilter gatewayv1.GRPCRouteFilter
+
+		switch httpFilter.Type {
+		case gatewayv1.HTTPRouteFilterRequestHeaderModifier:
+			if httpFilter.RequestHeaderModifier != nil {
+				grpcFilter = gatewayv1.GRPCRouteFilter{
+					Type: gatewayv1.GRPCRouteFilterRequestHeaderModifier,
+					RequestHeaderModifier: &gatewayv1.HTTPHeaderFilter{
+						Set:    httpFilter.RequestHeaderModifier.Set,
+						Add:    httpFilter.RequestHeaderModifier.Add,
+						Remove: httpFilter.RequestHeaderModifier.Remove,
+					},
+				}
+				grpcFilters = append(grpcFilters, grpcFilter)
+			}
+
+		case gatewayv1.HTTPRouteFilterResponseHeaderModifier:
+			if httpFilter.ResponseHeaderModifier != nil {
+				grpcFilter = gatewayv1.GRPCRouteFilter{
+					Type: gatewayv1.GRPCRouteFilterResponseHeaderModifier,
+					ResponseHeaderModifier: &gatewayv1.HTTPHeaderFilter{
+						Set:    httpFilter.ResponseHeaderModifier.Set,
+						Add:    httpFilter.ResponseHeaderModifier.Add,
+						Remove: httpFilter.ResponseHeaderModifier.Remove,
+					},
+				}
+				grpcFilters = append(grpcFilters, grpcFilter)
+			}
+
+			// Note: Other HTTP filter types like URLRewrite, RequestRedirect, etc.
+			// are not applicable to gRPC and are skipped
+		}
+	}
+
+	return grpcFilters
+}
+
+// removeGRPCRulesFromHTTPRoute removes HTTPRoute rules that target gRPC services
+func removeGRPCRulesFromHTTPRoute(httpRoute *gatewayv1.HTTPRoute, grpcServiceSet map[string]struct{}) []gatewayv1.HTTPRouteRule {
+	var remainingRules []gatewayv1.HTTPRouteRule
+
+	for _, rule := range httpRoute.Spec.Rules {
+		var remainingBackendRefs []gatewayv1.HTTPBackendRef
+
+		// Check each backend ref in the rule
+		for _, backendRef := range rule.BackendRefs {
+			serviceName := string(backendRef.BackendRef.BackendObjectReference.Name)
+			// Only keep backend refs that are NOT gRPC services
+			if _, isGRPCService := grpcServiceSet[serviceName]; !isGRPCService {
+				remainingBackendRefs = append(remainingBackendRefs, backendRef)
+			}
+		}
+
+		// If any backend refs remain, keep the rule
+		if len(remainingBackendRefs) > 0 {
+			rule.BackendRefs = remainingBackendRefs
+			remainingRules = append(remainingRules, rule)
+		}
+	}
+
+	return remainingRules
 }
