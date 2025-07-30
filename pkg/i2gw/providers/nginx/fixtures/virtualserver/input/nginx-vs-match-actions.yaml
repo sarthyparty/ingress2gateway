@@ -1,0 +1,86 @@
+---
+# VirtualServer demonstrating match-specific actions (multiple rules per route)
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServer
+metadata:
+  name: match-actions-vs
+  namespace: default
+spec:
+  host: api.example.com
+  tls:
+    secret: api-tls
+  upstreams:
+  - name: api-v1
+    service: api-v1-service
+    port: 8080
+  - name: api-v2
+    service: api-v2-service
+    port: 8080
+  - name: api-beta
+    service: api-beta-service
+    port: 8080
+  - name: premium-api
+    service: premium-api-service
+    port: 8080
+  routes:
+  # Route with multiple match+action combinations
+  - path: /api/users
+    matches:
+    # Match 1: v2 API with beta feature
+    - conditions:
+      - header: X-API-Version
+        value: v2
+      - argument: beta
+        value: "true"
+      action:
+        pass: api-beta
+    # Match 2: Premium users get dedicated backend
+    - conditions:
+      - header: X-User-Tier
+        value: premium
+      - cookie: session_type
+        value: premium
+      action:
+        pass: premium-api
+    # Match 3: v2 API (general)
+    - conditions:
+      - header: X-API-Version
+        value: v2
+      action:
+        pass: api-v2
+    # Default action for unmatched requests
+    action:
+      pass: api-v1
+      
+  # Route with header manipulation in matches
+  - path: /api/data
+    matches:
+    - conditions:
+      - header: Authorization
+        value: "Bearer .*"
+      action:
+        proxy:
+          upstream: api-v2
+          rewritePath: /secure/data
+          requestHeaders:
+            set:
+            - name: X-Authenticated
+              value: "true"
+    action:
+      redirect:
+        url: https://auth.example.com/login
+        code: 302
+        
+  # Route with negated conditions
+  - path: /api/public
+    matches:
+    - conditions:
+      - header: X-Internal-Request
+        value: "!true"
+      action:
+        pass: api-v1
+    action:
+      return:
+        code: 403
+        type: application/json
+        body: '{"error": "Internal access only"}'

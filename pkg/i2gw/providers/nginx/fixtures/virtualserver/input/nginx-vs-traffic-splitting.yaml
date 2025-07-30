@@ -1,0 +1,85 @@
+---
+# VirtualServer demonstrating traffic splitting capabilities
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServer
+metadata:
+  name: traffic-splitting-vs
+  namespace: default
+spec:
+  host: canary.example.com
+  tls:
+    secret: canary-tls
+  upstreams:
+  - name: stable-backend
+    service: stable-service
+    port: 8080
+  - name: canary-backend
+    service: canary-service
+    port: 8080
+  - name: experimental-backend
+    service: experimental-service
+    port: 8080
+  routes:
+  # Simple traffic split (A/B testing)
+  - path: /app
+    splits:
+    - weight: 80
+      action:
+        pass: stable-backend
+    - weight: 20
+      action:
+        pass: canary-backend
+        
+  # Three-way traffic split with header injection
+  - path: /api
+    splits:
+    - weight: 70
+      action:
+        pass: stable-backend
+    - weight: 25
+      action:
+        proxy:
+          upstream: canary-backend
+          requestHeaders:
+            set:
+            - name: X-Canary
+              value: "true"
+    - weight: 5
+      action:
+        proxy:
+          upstream: experimental-backend
+          requestHeaders:
+            set:
+            - name: X-Experimental
+              value: "true"
+            - name: X-Version
+              value: experimental
+              
+  # Traffic splitting with match conditions
+  - path: /feature
+    matches:
+    - conditions:
+      - header: X-Feature-Flag
+        value: enabled
+      splits:
+      - weight: 50
+        action:
+          pass: canary-backend
+      - weight: 50
+        action:
+          pass: experimental-backend
+    # Default: no splitting, just stable
+    action:
+      pass: stable-backend
+      
+  # Split with redirects (unusual but valid)
+  - path: /redirect-test
+    splits:
+    - weight: 90
+      action:
+        pass: stable-backend
+    - weight: 10
+      action:
+        redirect:
+          url: https://beta.example.com/redirect-test
+          code: 302

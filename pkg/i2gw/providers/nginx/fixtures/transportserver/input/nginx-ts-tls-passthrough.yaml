@@ -1,0 +1,30 @@
+---
+# GlobalConfiguration defining custom listeners
+apiVersion: k8s.nginx.org/v1
+kind: GlobalConfiguration
+metadata:
+  name: nginx-configuration
+  namespace: nginx-ingress
+spec:
+  listeners:
+  - name: tls-passthrough
+    port: 443
+    protocol: TLS_PASSTHROUGH
+---
+# TLS Passthrough for end-to-end encryption
+apiVersion: k8s.nginx.org/v1
+kind: TransportServer
+metadata:
+  name: secure-app
+  namespace: default
+spec:
+  listener:
+    name: tls-passthrough
+    protocol: TLS_PASSTHROUGH
+  host: secure.example.com
+  upstreams:
+  - name: secure-backend
+    service: secure-app-service
+    port: 8443
+  action:
+    pass: secure-backend

@@ -1,0 +1,30 @@
+---
+# Basic VirtualServer with simple routing
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServer
+metadata:
+  name: basic-webapp
+  namespace: default
+spec:
+  host: webapp.example.com
+  tls:
+    secret: webapp-tls
+  upstreams:
+  - name: webapp-backend
+    service: webapp-service
+    port: 8080
+  - name: api-backend
+    service: api-service
+    port: 3000
+  routes:
+  - path: /
+    action:
+      pass: webapp-backend
+  - path: /api
+    action:
+      pass: api-backend
+  - path: /docs
+    action:
+      redirect:
+        url: https://docs.example.com
+        code: 301
