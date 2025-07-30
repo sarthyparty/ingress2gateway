@@ -62,21 +62,16 @@ func processConditions(conditions []nginxv1.Condition, vs nginxv1.VirtualServer,
 	return headerMatches, queryMatches
 }
 
-// createHeaderMatch creates an HTTPHeaderMatch from a condition
-func createHeaderMatch(condition nginxv1.Condition, vs nginxv1.VirtualServer, notifs *[]notifications.Notification) *gatewayv1.HTTPHeaderMatch {
-	if condition.Header == "" || condition.Value == "" {
-		addNotification(notifs, notifications.WarningNotification,
-			"Header condition missing name or value", &vs)
-		return nil
-	}
-	raw := condition.Value
-	negate := false
+// processConditionValue processes a condition value, handling negation and regex patterns
+func processConditionValue(value string) (pattern string, negate bool) {
+	raw := value
+	negate = false
 
 	if strings.HasPrefix(raw, "!") {
 		negate = true
 		raw = raw[1:]
 	}
-	pattern := raw
+	pattern = raw
 
 	// If it's not already a regex, quote and wrap for case‑insensitive exact match
 	if !containsRegexPatterns(pattern) {
@@ -88,6 +83,19 @@ func createHeaderMatch(condition nginxv1.Condition, vs nginxv1.VirtualServer, no
 	if negate {
 		pattern = fmt.Sprintf("^(?!%s).*$", pattern)
 	}
+
+	return pattern, negate
+}
+
+// createHeaderMatch creates an HTTPHeaderMatch from a condition
+func createHeaderMatch(condition nginxv1.Condition, vs nginxv1.VirtualServer, notifs *[]notifications.Notification) *gatewayv1.HTTPHeaderMatch {
+	if condition.Header == "" || condition.Value == "" {
+		addNotification(notifs, notifications.WarningNotification,
+			"Header condition missing name or value", &vs)
+		return nil
+	}
+
+	pattern, _ := processConditionValue(condition.Value)
 
 	return &gatewayv1.HTTPHeaderMatch{
 		Type:  Ptr(gatewayv1.HeaderMatchRegularExpression),
@@ -104,25 +112,7 @@ func createQueryMatch(condition nginxv1.Condition, vs nginxv1.VirtualServer, not
 		return nil
 	}
 
-	raw := condition.Value
-	negate := false
-
-	if strings.HasPrefix(raw, "!") {
-		negate = true
-		raw = raw[1:]
-	}
-	pattern := raw
-
-	// If it's not already a regex, quote and wrap for case‑insensitive exact match
-	if !containsRegexPatterns(pattern) {
-		escaped := regexp.QuoteMeta(pattern)
-		pattern = fmt.Sprintf("(?i)^%s$", escaped)
-	}
-
-	// If negated, wrap in a negative lookahead
-	if negate {
-		pattern = fmt.Sprintf("^(?!%s).*$", pattern)
-	}
+	pattern, _ := processConditionValue(condition.Value)
 
 	return &gatewayv1.HTTPQueryParamMatch{
 		Type:  Ptr(gatewayv1.QueryParamMatchRegularExpression),
@@ -131,16 +121,10 @@ func createQueryMatch(condition nginxv1.Condition, vs nginxv1.VirtualServer, not
 	}
 }
 
-// createCookieMatch creates an HTTPHeaderMatch for Cookie header from a condition
-func createCookieMatch(condition nginxv1.Condition, vs nginxv1.VirtualServer, notifs *[]notifications.Notification) *gatewayv1.HTTPHeaderMatch {
-	if condition.Cookie == "" || condition.Value == "" {
-		addNotification(notifs, notifications.WarningNotification,
-			"Cookie condition missing name or value", &vs)
-		return nil
-	}
-
-	raw := condition.Value
-	negate := false
+// processCookieConditionValue processes a cookie condition value with special cookie handling
+func processCookieConditionValue(cookieName, value string) (pattern string, negate bool) {
+	raw := value
+	negate = false
 
 	if strings.HasPrefix(raw, "!") {
 		negate = true
@@ -148,8 +132,8 @@ func createCookieMatch(condition nginxv1.Condition, vs nginxv1.VirtualServer, no
 	}
 
 	// Create cookie pattern: cookiename=value
-	cookieNameValue := condition.Cookie + "=" + raw
-	pattern := cookieNameValue
+	cookieNameValue := cookieName + "=" + raw
+	pattern = cookieNameValue
 
 	// If it's not already a regex, quote and wrap for case-insensitive match within Cookie header
 	if !containsRegexPatterns(pattern) {
@@ -165,6 +149,19 @@ func createCookieMatch(condition nginxv1.Condition, vs nginxv1.VirtualServer, no
 		pattern = fmt.Sprintf("^(?!.*%s).*$", cookieNameValue)
 	}
 
+	return pattern, negate
+}
+
+// createCookieMatch creates an HTTPHeaderMatch for Cookie header from a condition
+func createCookieMatch(condition nginxv1.Condition, vs nginxv1.VirtualServer, notifs *[]notifications.Notification) *gatewayv1.HTTPHeaderMatch {
+	if condition.Cookie == "" || condition.Value == "" {
+		addNotification(notifs, notifications.WarningNotification,
+			"Cookie condition missing name or value", &vs)
+		return nil
+	}
+
+	pattern, _ := processCookieConditionValue(condition.Cookie, condition.Value)
+
 	addNotification(notifs, notifications.InfoNotification,
 		"Cookie condition converted to Cookie header match", &vs)
 
@@ -174,5 +171,3 @@ func createCookieMatch(condition nginxv1.Condition, vs nginxv1.VirtualServer, no
 		Value: pattern,
 	}
 }
-
-// containsRegexPatterns is implemented in utils.go

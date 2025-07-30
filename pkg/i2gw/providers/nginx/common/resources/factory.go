@@ -37,32 +37,13 @@ type BackendTLSPolicyOptions struct {
 	ServiceName string
 	// Source label for tracking the origin (e.g., "nginx-ssl-services")
 	SourceLabel string
-	// Additional labels to apply
-	Labels map[string]string
-}
-
-// GRPCRouteOptions contains options for GRPCRoute creation
-type GRPCRouteOptions struct {
-	// Name of the GRPCRoute
-	Name string
-	// Namespace of the GRPCRoute
-	Namespace string
-	// Hostnames for the route
-	Hostnames []string
-	// Parent gateway references
-	ParentRefs []gatewayv1.ParentReference
-	// GRPC route rules
-	Rules []gatewayv1.GRPCRouteRule
-	// Source label for tracking the origin (e.g., "nginx-grpc-services")
-	SourceLabel string
-	// Additional labels to apply
+	// Labels to apply to the policy (additional to the source label)
 	Labels map[string]string
 }
 
 // PolicyOptions contains all policy configuration options
 type PolicyOptions struct {
 	BackendTLS *BackendTLSPolicyOptions
-	GRPCRoute  *GRPCRouteOptions
 	// NotificationCollector for gathering notifications during policy creation
 	NotificationCollector common.NotificationCollector
 	// Source object for notifications (e.g., VirtualServer, Ingress)
@@ -124,63 +105,6 @@ func CreateBackendTLSPolicy(opts PolicyOptions) *gatewayv1alpha3.BackendTLSPolic
 	return policy
 }
 
-// CreateGRPCRoute creates a GRPCRoute using the provided options
-func CreateGRPCRoute(opts PolicyOptions) *gatewayv1.GRPCRoute {
-	if opts.GRPCRoute == nil {
-		return nil
-	}
-
-	grpcOpts := opts.GRPCRoute
-
-	// Build labels
-	labels := map[string]string{
-		"app.kubernetes.io/managed-by": "ingress2gateway",
-	}
-	if grpcOpts.SourceLabel != "" {
-		labels["ingress2gateway.io/source"] = grpcOpts.SourceLabel
-	}
-	for k, v := range grpcOpts.Labels {
-		labels[k] = v
-	}
-
-	// Convert string hostnames to Gateway API Hostname type
-	var hostnames []gatewayv1.Hostname
-	for _, hostname := range grpcOpts.Hostnames {
-		if hostname != "" {
-			hostnames = append(hostnames, gatewayv1.Hostname(hostname))
-		}
-	}
-
-	route := &gatewayv1.GRPCRoute{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: gatewayv1.GroupVersion.String(),
-			Kind:       GRPCRouteKind,
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      grpcOpts.Name,
-			Namespace: grpcOpts.Namespace,
-			Labels:    labels,
-		},
-		Spec: gatewayv1.GRPCRouteSpec{
-			CommonRouteSpec: gatewayv1.CommonRouteSpec{
-				ParentRefs: grpcOpts.ParentRefs,
-			},
-			Hostnames: hostnames,
-			Rules:     grpcOpts.Rules,
-		},
-	}
-
-	// Add notification about GRPC route creation
-	if opts.NotificationCollector != nil {
-		message := fmt.Sprintf("GRPCRoute '%s' created with %d rules. Ensure your backend services support gRPC protocol.", grpcOpts.Name, len(grpcOpts.Rules))
-		opts.NotificationCollector.AddInfo(message, opts.SourceObject)
-	}
-
-	return route
-}
-
-// Helper functions for building policy options
-
 // NewBackendTLSPolicyOptions creates BackendTLSPolicyOptions with common defaults
 func NewBackendTLSPolicyOptions(name, namespace, serviceName, sourceLabel string) *BackendTLSPolicyOptions {
 	return &BackendTLSPolicyOptions{
@@ -192,32 +116,12 @@ func NewBackendTLSPolicyOptions(name, namespace, serviceName, sourceLabel string
 	}
 }
 
-// NewGRPCRouteOptions creates GRPCRouteOptions with common defaults
-func NewGRPCRouteOptions(name, namespace, sourceLabel string) *GRPCRouteOptions {
-	return &GRPCRouteOptions{
-		Name:        name,
-		Namespace:   namespace,
-		SourceLabel: sourceLabel,
-		Labels:      make(map[string]string),
-		ParentRefs:  make([]gatewayv1.ParentReference, 0),
-		Rules:       make([]gatewayv1.GRPCRouteRule, 0),
-	}
-}
-
 // GenerateBackendTLSPolicyName generates a consistent policy name
 func GenerateBackendTLSPolicyName(serviceName, suffix string) string {
 	if suffix != "" {
 		return fmt.Sprintf("%s-%s-backend-tls", serviceName, suffix)
 	}
 	return fmt.Sprintf("%s-backend-tls", serviceName)
-}
-
-// GenerateGRPCRouteName generates a consistent GRPC route name
-func GenerateGRPCRouteName(baseName, suffix string) string {
-	if suffix != "" {
-		return fmt.Sprintf("%s-%s-grpc", baseName, suffix)
-	}
-	return fmt.Sprintf("%s-grpc", baseName)
 }
 
 // GeneratePolicyKey generates a NamespacedName key for policy storage
