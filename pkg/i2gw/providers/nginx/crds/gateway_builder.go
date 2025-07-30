@@ -18,6 +18,7 @@ package crds
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -259,11 +260,27 @@ func (f *NamespaceGatewayFactory) createListeners(gatewayName string) ([]gateway
 		virtualServerMap[tsName] = listeners
 	}
 
-	// Convert map to slice
+	// Sort virtualServerMap entries for deterministic parent references
+	for vsName, listenerKeys := range virtualServerMap {
+		sort.Slice(listenerKeys, func(i, j int) bool {
+			if listenerKeys[i].gatewayName != listenerKeys[j].gatewayName {
+				return listenerKeys[i].gatewayName < listenerKeys[j].gatewayName
+			}
+			return listenerKeys[i].listenerName < listenerKeys[j].listenerName
+		})
+		virtualServerMap[vsName] = listenerKeys
+	}
+
+	// Convert map to slice and sort for deterministic order
 	var listeners []gatewayv1.Listener
 	for _, listener := range uniqueListeners {
 		listeners = append(listeners, listener)
 	}
+
+	// Sort listeners by name for deterministic ordering
+	sort.Slice(listeners, func(i, j int) bool {
+		return string(listeners[i].Name) < string(listeners[j].Name)
+	})
 
 	return listeners, virtualServerMap
 }
