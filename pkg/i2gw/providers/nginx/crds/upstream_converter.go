@@ -104,8 +104,8 @@ func populateUpstreamConfig(upstream *nginxv1.Upstream) *UpstreamConfig {
 		Type:                upstream.Type,
 		Backup:              upstream.Backup,
 		BackupPort:          upstream.BackupPort,
-		NextUpstreamTries:   Ptr(int32(upstream.ProxyNextUpstreamTries)),
-		UseClusterIP:        Ptr(upstream.UseClusterIP),
+		NextUpstreamTries:   func() *int32 { if upstream.ProxyNextUpstreamTries != 0 { return Ptr(int32(upstream.ProxyNextUpstreamTries)) }; return nil }(),
+		UseClusterIP:        func() *bool { if upstream.UseClusterIP { return Ptr(upstream.UseClusterIP) }; return nil }(),
 		BufferSize:          upstream.ProxyBufferSize,
 		Subselector:         upstream.Subselector,
 		SessionCookie:       upstream.SessionCookie,
@@ -123,8 +123,8 @@ func populateUpstreamConfig(upstream *nginxv1.Upstream) *UpstreamConfig {
 func checkUnsupportedUpstreamConversions(config *UpstreamConfig, vs *nginxv1.VirtualServer, notifs *[]notifications.Notification) {
 	upstreamName := config.Name
 
-	// Check load balancing method
-	if config.LBMethod != "least_conn" {
+	// Check load balancing method - only notify if explicitly specified and not least_conn
+	if config.LBMethod != "" && config.LBMethod != "least_conn" {
 		addNotification(notifs, notifications.InfoNotification,
 			fmt.Sprintf("Upstream '%s': LBMethod '%s' will be set to random two least_conn by default", upstreamName, config.LBMethod), vs)
 	}

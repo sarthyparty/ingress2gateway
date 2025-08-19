@@ -92,9 +92,6 @@ func CRDsToGatewayIR(
 				Protocol: gatewayv1.ProtocolType(l.Protocol),
 			}
 		}
-	} else {
-		addNotification(&notificationList, notifications.InfoNotification,
-			"GlobalConfiguration not found", nil)
 	}
 
 	// Get all namespaces that have either VirtualServers or TransportServers

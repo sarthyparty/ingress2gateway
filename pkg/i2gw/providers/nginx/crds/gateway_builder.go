@@ -32,6 +32,9 @@ import (
 )
 
 const (
+	// DefaultGatewayName is the default name for gateways created from VirtualServers
+	DefaultGatewayName = "nginx"
+
 	namespaceGatewayHTTPPort  = 80
 	namespaceGatewayHTTPSPort = 443
 )
@@ -69,7 +72,7 @@ func NewNamespaceGatewayFactory(namespace string, virtualServers []nginxv1.Virtu
 
 // CreateNamespaceGateway creates a single Gateway for all VirtualServers and TransportServers in the namespace
 func (f *NamespaceGatewayFactory) CreateNamespaceGateway() (map[types.NamespacedName]intermediate.GatewayContext, map[string][]gatewayListenerKey) {
-	gatewayName := f.namespace + "-gateway"
+	gatewayName := DefaultGatewayName
 	gatewayKey := types.NamespacedName{
 		Namespace: f.namespace,
 		Name:      gatewayName,

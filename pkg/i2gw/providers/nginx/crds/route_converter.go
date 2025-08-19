@@ -342,8 +342,7 @@ func (c *VirtualServerRouteConverter) handleTrafficSplits(vs nginxv1.VirtualServ
 		}
 	}
 
-	c.addNotification(notifications.InfoNotification,
-		"Traffic splitting configuration converted to weighted backend refs")
+	// Traffic splitting configuration converted to weighted backend refs
 }
 
 // isRouteGRPC determines if a route should be treated as gRPC based on its referenced upstreams
@@ -417,10 +416,7 @@ func (c *VirtualServerRouteConverter) createHTTPRoute(rules []gatewayv1.HTTPRout
 		},
 	}
 
-	// Add notification about HTTPRoute creation
-	c.addNotification(notifications.InfoNotification,
-		fmt.Sprintf("Created HTTPRoute '%s' with %d HTTP rules for host '%s'",
-			httpRouteName, len(rules), c.vs.Spec.Host))
+	// HTTPRoute created with rules for host
 
 	return intermediate.HTTPRouteContext{
 		HTTPRoute: httpRoute,
