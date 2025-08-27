@@ -1,0 +1,40 @@
+---
+# VirtualServer with unsupported fields to test warnings
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServer
+metadata:
+  name: unsupported-fields-webapp
+  namespace: default
+spec:
+  host: webapp.example.com
+  tls:
+    secret: webapp-tls
+  # Unsupported fields that should generate warnings
+  gunzip: true
+  externalDNS:
+    enable: true
+    recordType: "A"
+    recordTTL: 300
+  dos: "dos-protection-policy"
+  policies:
+  - name: "rate-limit-policy"
+    namespace: "default"
+  - name: "auth-policy"
+    namespace: "default"
+  internalRoute: true
+  http-snippets: |
+    proxy_cache_bypass $http_secret_header;
+    add_header X-Cache-Status $upstream_cache_status;
+  server-snippets: |
+    location /health {
+      access_log off;
+      return 200 "healthy\n";
+    }
+  upstreams:
+  - name: webapp-backend
+    service: webapp-service
+    port: 8080
+  routes:
+  - path: /
+    action:
+      pass: webapp-backend

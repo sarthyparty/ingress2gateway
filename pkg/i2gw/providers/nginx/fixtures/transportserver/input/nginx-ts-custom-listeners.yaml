@@ -1,0 +1,53 @@
+---
+# GlobalConfiguration with custom TransportServer listeners
+apiVersion: k8s.nginx.org/v1
+kind: GlobalConfiguration
+metadata:
+  name: nginx-configuration
+  namespace: nginx-ingress
+spec:
+  listeners:
+  - name: redis-tcp
+    port: 6379
+    protocol: TCP
+  - name: mqtt-tls
+    port: 8883
+    protocol: TCP
+  - name: syslog-udp
+    port: 514
+    protocol: UDP
+---
+apiVersion: k8s.nginx.org/v1
+kind: TransportServer
+metadata:
+  name: redis-proxy
+  namespace: default
+spec:
+  listener:
+    name: redis-tcp
+    protocol: TCP
+  upstreams:
+  - name: redis-backend
+    service: redis-service
+    port: 6379
+  action:
+    pass: redis-backend
+---
+apiVersion: k8s.nginx.org/v1
+kind: TransportServer
+metadata:
+  name: mqtt-secure
+  namespace: default
+spec:
+  listener:
+    name: mqtt-tls
+    protocol: TCP
+  host: mqtt.example.com
+  tls:
+    secret: mqtt-tls-secret
+  upstreams:
+  - name: mqtt-backend
+    service: mqtt-broker
+    port: 1883
+  action:
+    pass: mqtt-backend

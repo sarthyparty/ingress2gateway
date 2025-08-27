@@ -7,7 +7,7 @@ generate-fixtures: ## Generate fixtures with notifications (for debugging)
 	@for dir in $(shell find fixtures -type d -name "input"); do \
 		for file in $$(find $$dir -type f); do \
 			echo "Processing $$file..."; \
-			../../../../ingress2gateway print --input-file $$file --providers nginx > $$(dirname $$(dirname $$file))/output/$$(basename $$file); \
+			../../../../ingress2gateway print --nginx-global-configuration nginx-ingress/nginx-configuration --input-file $$file --providers nginx > $$(dirname $$(dirname $$file))/output/$$(basename $$file); \
 		done; \
 	done
 
@@ -17,7 +17,7 @@ generate-clean-fixtures: ## Generate fixtures without notifications (clean YAML 
 	@for dir in $(shell find fixtures -type d -name "input"); do \
 		for file in $$(find $$dir -type f); do \
 			echo "Processing $$file..."; \
-			../../../../ingress2gateway print --input-file $$file --providers nginx | \
+			../../../../ingress2gateway print --nginx-global-configuration nginx-ingress/nginx-configuration --input-file $$file --providers nginx | \
 			awk '/^apiVersion:/ {found=1} found {print}' > $$(dirname $$(dirname $$file))/output/$$(basename $$file); \
 		done; \
 	done
