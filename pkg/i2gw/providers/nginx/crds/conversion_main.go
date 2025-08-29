@@ -128,8 +128,7 @@ func CRDsToGatewayIR(
 			upstreamConfigs := make(map[string]*UpstreamConfig)
 			for _, upstream := range vs.Spec.Upstreams {
 				if validateUpstream(&upstream, &vs, &notificationList) {
-					config := populateUpstreamConfig(&upstream)
-					checkUnsupportedUpstreamConversions(config, &vs, &notificationList)
+					config := populateUpstreamConfig(&upstream, &vs, &notificationList)
 					upstreamConfigs[upstream.Name] = config
 				}
 			}

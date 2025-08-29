@@ -110,7 +110,7 @@ func TestVirtualServerToGatewayIR_RealWorldScenarios(t *testing.T) {
 			expectedGateways:   1,
 			expectedHTTPRoutes: 2, // Normal route + redirect route
 			expectedWarnings:   1, // BackendTLSPolicy warning
-			expectedInfos:      10, // GlobalConfiguration not found + upstream notifications + HTTPRoute creation
+			expectedInfos:      2, // Path rewrite and header modification notifications
 		},
 		{
 			name: "microservices with shared authentication service",
@@ -195,7 +195,7 @@ func TestVirtualServerToGatewayIR_RealWorldScenarios(t *testing.T) {
 			expectedGateways:   2, // Different namespaces
 			expectedHTTPRoutes: 2,
 			expectedWarnings:   1, // Return action warning
-			expectedInfos:      9, // GlobalConfiguration not found + upstream notifications + HTTPRoute creation
+			expectedInfos:      0, // No unsupported features in these basic upstreams
 		},
 		{
 			name: "legacy application with unsupported features",
@@ -239,7 +239,7 @@ func TestVirtualServerToGatewayIR_RealWorldScenarios(t *testing.T) {
 			expectedGateways:   1,
 			expectedHTTPRoutes: 1,
 			expectedWarnings:   7, // All unsupported fields
-			expectedInfos:      5, // GlobalConfiguration not found + upstream notifications + HTTPRoute creation
+			expectedInfos:      0, // No unsupported features in these basic upstreams
 		},
 		{
 			name: "VirtualServer without host (should be skipped)",
