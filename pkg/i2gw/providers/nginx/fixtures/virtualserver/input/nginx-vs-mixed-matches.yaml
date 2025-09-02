@@ -1,0 +1,42 @@
+---
+# VirtualServer with one route having two matches - one HTTP, one gRPC
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServer
+metadata:
+  name: mixed-matches-vs
+  namespace: default
+spec:
+  host: api.example.com
+  tls:
+    secret: api-tls
+  upstreams:
+  - name: http-backend
+    service: http-service
+    port: 8080
+  - name: grpc-backend
+    service: grpc-service
+    port: 9090
+    type: grpc
+  routes:
+  - path: /api
+    matches:
+    # Match 1: HTTP traffic with specific header
+    - conditions:
+      - header: Content-Type
+        value: "application/json"
+      action:
+        pass: http-backend
+    # Match 2: gRPC traffic with service header
+    - conditions:
+      - header: Content-Type
+        value: "application/grpc"
+      action:
+        pass: grpc-backend
+    # Default action
+    action:
+      pass: http-backend
+    # gRPC configuration
+    grpc:
+      services:
+      - name: api.DataService
+        upstream: grpc-backend

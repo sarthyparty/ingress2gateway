@@ -1,0 +1,61 @@
+---
+# VirtualServer with advanced proxy features
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServer
+metadata:
+  name: advanced-proxy-vs
+  namespace: default
+spec:
+  host: advanced.example.com
+  tls:
+    secret: advanced-tls
+  upstreams:
+  - name: backend-v1
+    service: backend-v1-service
+    port: 8080
+  - name: backend-v2
+    service: backend-v2-service
+    port: 8080
+  routes:
+  # Route with proxy configuration and header manipulation
+  - path: /api/v1
+    action:
+      proxy:
+        upstream: backend-v1
+        rewritePath: /v1/api
+        requestHeaders:
+          set:
+          - name: X-Forwarded-Proto
+            value: https
+          - name: X-API-Version
+            value: v1
+        responseHeaders:
+          add:
+          - name: Cache-Control
+            value: no-cache
+  
+  # Route with path rewriting
+  - path: /legacy
+    action:
+      proxy:
+        upstream: backend-v2
+        rewritePath: /api/legacy
+        requestHeaders:
+          set:
+          - name: X-Legacy-Request
+            value: "true"
+  
+  # Route with return action
+  - path: /status
+    action:
+      return:
+        code: 200
+        type: application/json
+        body: '{"status": "healthy", "version": "2.0"}'
+        
+  # Route with redirect
+  - path: /old-docs
+    action:
+      redirect:
+        url: https://docs.example.com/v2
+        code: 301
