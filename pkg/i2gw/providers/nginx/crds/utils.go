@@ -28,11 +28,6 @@ import (
 
 // Utility functions
 
-// Ptr is Generic pointer conversion utility
-func Ptr[T any](t T) *T {
-	return &t
-}
-
 // findUpstream finds an upstream by name in the upstreams slice
 func findUpstream(upstreams []nginxv1.Upstream, name string) *nginxv1.Upstream {
 	for _, upstream := range upstreams {

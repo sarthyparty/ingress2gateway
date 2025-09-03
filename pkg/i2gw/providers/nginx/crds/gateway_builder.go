@@ -26,7 +26,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kubernetes-sigs/ingress2gateway/pkg/i2gw/intermediate"
-	"github.com/kubernetes-sigs/ingress2gateway/pkg/i2gw/notifications"
+	"github.com/kubernetes-sigs/ingress2gateway/pkg/i2gw/providers/common"
 	nginxv1 "github.com/nginx/kubernetes-ingress/pkg/apis/configuration/v1"
 )
 
@@ -54,17 +54,15 @@ type NamespaceGatewayFactory struct {
 	namespace        string
 	virtualServers   []nginxv1.VirtualServer
 	transportServers []nginxv1.TransportServer
-	notificationList *[]notifications.Notification
 	listenerMap      map[string]gatewayv1.Listener
 }
 
 // NewNamespaceGatewayFactory creates a new factory for namespace-scoped Gateway creation
-func NewNamespaceGatewayFactory(namespace string, virtualServers []nginxv1.VirtualServer, transportServers []nginxv1.TransportServer, notifs *[]notifications.Notification, listenerMap map[string]gatewayv1.Listener) *NamespaceGatewayFactory {
+func NewNamespaceGatewayFactory(namespace string, virtualServers []nginxv1.VirtualServer, transportServers []nginxv1.TransportServer, listenerMap map[string]gatewayv1.Listener) *NamespaceGatewayFactory {
 	return &NamespaceGatewayFactory{
 		namespace:        namespace,
 		virtualServers:   virtualServers,
 		transportServers: transportServers,
-		notificationList: notifs,
 		listenerMap:      listenerMap,
 	}
 }
@@ -173,11 +171,11 @@ func (f *NamespaceGatewayFactory) createListeners(gatewayName string) ([]gateway
 					Protocol: gatewayv1.HTTPSProtocolType,
 					Hostname: (*gatewayv1.Hostname)(hostPtr),
 					TLS: &gatewayv1.GatewayTLSConfig{
-						Mode: Ptr(gatewayv1.TLSModeTerminate),
+						Mode: common.PtrTo(gatewayv1.TLSModeTerminate),
 						CertificateRefs: []gatewayv1.SecretObjectReference{
 							{
-								Group: Ptr(gatewayv1.Group("")),
-								Kind:  Ptr(gatewayv1.Kind("Secret")),
+								Group: common.PtrTo(gatewayv1.Group("")),
+								Kind:  common.PtrTo(gatewayv1.Kind("Secret")),
 								Name:  gatewayv1.ObjectName(secret),
 							},
 						},
@@ -230,11 +228,11 @@ func (f *NamespaceGatewayFactory) createListeners(gatewayName string) ([]gateway
 				if ts.Spec.TLS != nil && ts.Spec.TLS.Secret != "" {
 					// TLS termination
 					listener.TLS = &gatewayv1.GatewayTLSConfig{
-						Mode: Ptr(gatewayv1.TLSModeTerminate),
+						Mode: common.PtrTo(gatewayv1.TLSModeTerminate),
 						CertificateRefs: []gatewayv1.SecretObjectReference{
 							{
-								Group: Ptr(gatewayv1.Group("")),
-								Kind:  Ptr(gatewayv1.Kind("Secret")),
+								Group: common.PtrTo(gatewayv1.Group("")),
+								Kind:  common.PtrTo(gatewayv1.Kind("Secret")),
 								Name:  gatewayv1.ObjectName(ts.Spec.TLS.Secret),
 							},
 						},
@@ -242,7 +240,7 @@ func (f *NamespaceGatewayFactory) createListeners(gatewayName string) ([]gateway
 				} else {
 					// TLS passthrough (default for TLS_PASSTHROUGH protocol)
 					listener.TLS = &gatewayv1.GatewayTLSConfig{
-						Mode: Ptr(gatewayv1.TLSModePassthrough),
+						Mode: common.PtrTo(gatewayv1.TLSModePassthrough),
 					}
 				}
 			}
@@ -320,7 +318,7 @@ func (f *NamespaceGatewayFactory) getListenerPorts(vs nginxv1.VirtualServer) (ht
 func (f *NamespaceGatewayFactory) getTransportServerPort(ts nginxv1.TransportServer) *int {
 	listenerName := ts.Spec.Listener.Name
 	if listener, exists := f.listenerMap[listenerName]; exists {
-		return Ptr(int(listener.Port))
+		return common.PtrTo(int(listener.Port))
 	}
 	return nil
 }
@@ -329,11 +327,11 @@ func (f *NamespaceGatewayFactory) getTransportServerPort(ts nginxv1.TransportSer
 func (f *NamespaceGatewayFactory) getTransportServerProtocol(ts nginxv1.TransportServer) *gatewayv1.ProtocolType {
 	switch ts.Spec.Listener.Protocol {
 	case "TCP":
-		return Ptr(gatewayv1.TCPProtocolType)
+		return common.PtrTo(gatewayv1.TCPProtocolType)
 	case "UDP":
-		return Ptr(gatewayv1.UDPProtocolType)
+		return common.PtrTo(gatewayv1.UDPProtocolType)
 	case "TLS_PASSTHROUGH":
-		return Ptr(gatewayv1.TLSProtocolType)
+		return common.PtrTo(gatewayv1.TLSProtocolType)
 	default:
 		return nil
 	}
@@ -351,16 +349,6 @@ func (f *NamespaceGatewayFactory) generateTransportListenerName(ts nginxv1.Trans
 	return fmt.Sprintf("%s-%d", protocolStr, port)
 }
 
-// addNotification adds a notification to the notification list
-func (f *NamespaceGatewayFactory) addNotification(messageType notifications.MessageType, message string) {
-	// Use the first VirtualServer as the source object for namespace-level notifications
-	var sourceObject *nginxv1.VirtualServer
-	if len(f.virtualServers) > 0 {
-		sourceObject = &f.virtualServers[0]
-	}
-
-	addNotification(f.notificationList, messageType, message, sourceObject)
-}
 
 // sanitizeHostname replaces special characters for use in sectionName
 func sanitizeHostname(host string) string {

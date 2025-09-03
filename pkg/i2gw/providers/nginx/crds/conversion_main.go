@@ -102,7 +102,7 @@ func CRDsToGatewayIR(
 		tsListForNamespace := namespaceTSMap[namespace] // May be empty slice
 
 		// Create shared gateway for both VirtualServers and TransportServers
-		gatewayFactory := NewNamespaceGatewayFactory(namespace, vsListForNamespace, tsListForNamespace, &notificationList, listenerMap)
+		gatewayFactory := NewNamespaceGatewayFactory(namespace, vsListForNamespace, tsListForNamespace, listenerMap)
 		gateways, _ := gatewayFactory.CreateNamespaceGateway()
 
 		for gatewayKey, gateway := range gateways {
