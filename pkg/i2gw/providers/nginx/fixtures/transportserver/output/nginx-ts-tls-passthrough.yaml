@@ -1,0 +1,49 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  annotations:
+    gateway.networking.k8s.io/generator: ingress2gateway-dev
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/managed-by: ingress2gateway
+    ingress2gateway.io/source: nginx-virtualserver
+  name: default-gateway
+  namespace: default
+spec:
+  gatewayClassName: nginx
+  listeners:
+  - hostname: secure.example.com
+    name: tls-443-secure-example-com
+    port: 443
+    protocol: TLS
+    tls:
+      mode: Passthrough
+status: {}
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
+metadata:
+  annotations:
+    gateway.networking.k8s.io/generator: ingress2gateway-dev
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/managed-by: ingress2gateway
+    ingress2gateway.io/source: nginx-transportserver
+    ingress2gateway.io/ts-name: secure-app
+  name: secure-app-tlsroute
+  namespace: default
+spec:
+  hostnames:
+  - secure.example.com
+  parentRefs:
+  - name: default-gateway
+    sectionName: tls-443-secure-example-com
+  rules:
+  - backendRefs:
+    - group: core
+      kind: Service
+      name: secure-app-service
+      namespace: default
+      port: 8443
+status:
+  parents: null

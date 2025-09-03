@@ -17,6 +17,9 @@ limitations under the License.
 package crds
 
 import (
+	"fmt"
+	"maps"
+
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -109,7 +112,33 @@ func CRDsToGatewayIR(
 			gatewayMap[gatewayKey] = gateway
 		}
 
-		// TODO: VirtualServer and TransportServer route conversion will be added in subsequent PRs
+		// Convert each TransportServer to routes (TCPRoute, TLSRoute, or UDPRoute)
+		for _, ts := range tsListForNamespace {
+			// Validate that listener field is present (required for TransportServer)
+			if ts.Spec.Listener.Name == "" || ts.Spec.Listener.Protocol == "" {
+				notificationList = append(notificationList, notifications.Notification{
+					Type:    notifications.WarningNotification,
+					Message: fmt.Sprintf("TransportServer '%s' skipped: listener field is required but not specified", ts.Name),
+				})
+				continue
+			}
+
+			if _, exists := listenerMap[ts.Spec.Listener.Name]; !exists {
+				notificationList = append(notificationList, notifications.Notification{
+					Type:    notifications.WarningNotification,
+					Message: fmt.Sprintf("TransportServer '%s' skipped: listener '%s' not found in GlobalConfiguration", ts.Name, ts.Spec.Listener.Name),
+				})
+				continue
+			}
+
+			converter := NewTransportServerConverter(ts, &notificationList, listenerMap)
+			tcpRoutes, tlsRoutes, udpRoutes := converter.ConvertToRoutes()
+
+			// Add routes to maps
+			maps.Copy(tcpRouteMap, tcpRoutes)
+			maps.Copy(tlsRouteMap, tlsRoutes)
+			maps.Copy(udpRouteMap, udpRoutes)
+		}
 	}
 
 	return intermediate.IR{
