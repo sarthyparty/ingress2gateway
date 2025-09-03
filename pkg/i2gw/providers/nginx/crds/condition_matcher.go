@@ -63,15 +63,15 @@ func processConditions(conditions []nginxv1.Condition, vs nginxv1.VirtualServer,
 }
 
 // processConditionValue processes a condition value, handling negation and regex patterns
-func processConditionValue(value string) (pattern string, negate bool) {
+func processConditionValue(value string) string {
 	raw := value
-	negate = false
+	negate := false
 
 	if strings.HasPrefix(raw, "!") {
 		negate = true
 		raw = raw[1:]
 	}
-	pattern = raw
+	pattern := raw
 
 	// If it's not already a regex, quote and wrap for case‑insensitive exact match
 	if !containsRegexPatterns(pattern) {
@@ -84,7 +84,7 @@ func processConditionValue(value string) (pattern string, negate bool) {
 		pattern = fmt.Sprintf("^(?!%s).*$", pattern)
 	}
 
-	return pattern, negate
+	return pattern
 }
 
 // createHeaderMatch creates an HTTPHeaderMatch from a condition
@@ -95,7 +95,7 @@ func createHeaderMatch(condition nginxv1.Condition, vs nginxv1.VirtualServer, no
 		return nil
 	}
 
-	pattern, _ := processConditionValue(condition.Value)
+	pattern := processConditionValue(condition.Value)
 
 	return &gatewayv1.HTTPHeaderMatch{
 		Type:  Ptr(gatewayv1.HeaderMatchRegularExpression),
@@ -112,7 +112,7 @@ func createQueryMatch(condition nginxv1.Condition, vs nginxv1.VirtualServer, not
 		return nil
 	}
 
-	pattern, _ := processConditionValue(condition.Value)
+	pattern := processConditionValue(condition.Value)
 
 	return &gatewayv1.HTTPQueryParamMatch{
 		Type:  Ptr(gatewayv1.QueryParamMatchRegularExpression),

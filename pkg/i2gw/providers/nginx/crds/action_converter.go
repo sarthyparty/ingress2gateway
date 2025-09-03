@@ -1,5 +1,5 @@
 /*
-Copyright 2024 The Kubernetes Authors.
+Copyright 2025 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,7 +24,6 @@ import (
 
 	"github.com/kubernetes-sigs/ingress2gateway/pkg/i2gw/notifications"
 	ncommon "github.com/kubernetes-sigs/ingress2gateway/pkg/i2gw/providers/nginx/common"
-	"github.com/kubernetes-sigs/ingress2gateway/pkg/i2gw/providers/nginx/common/filters"
 	nginxv1 "github.com/nginx/kubernetes-ingress/pkg/apis/configuration/v1"
 )
 
@@ -78,24 +77,12 @@ func handleAdvancedProxyAction(vs nginxv1.VirtualServer, action *nginxv1.Action,
 
 // createPathRewriteFilter creates a URLRewrite filter for path rewriting using the unified factory
 func createPathRewriteFilter(rewritePath string, vs nginxv1.VirtualServer, notifs *[]notifications.Notification) *gatewayv1.HTTPRouteFilter {
-	collector := ncommon.NewSliceNotificationCollector()
-
 	if strings.Contains(rewritePath, "$") {
-		collector.AddWarning("Path rewrite contains $ - not supported in Gateway API", &vs)
+		addNotification(notifs, notifications.WarningNotification, "Path rewrite contains $ - not supported in Gateway API", &vs)
 		return nil
 	}
 
-	filter := filters.NewHTTPRouteFilter(filters.URLRewriteFilter, filters.FilterOptions{
-		URLRewrite: &filters.URLRewriteOptions{
-			Path: rewritePath,
-		},
-		NotificationCollector: collector,
-		SourceObject:          &vs,
-	})
-
-	*notifs = append(*notifs, collector.GetNotifications()...)
-
-	return filter
+	return ncommon.CreateURLRewriteFilter(rewritePath)
 }
 
 // createRequestHeaderFilter creates a RequestHeaderModifier filter using the unified factory
@@ -104,32 +91,17 @@ func createRequestHeaderFilter(requestHeaders *nginxv1.ProxyRequestHeaders, vs n
 		return nil
 	}
 
-	collector := ncommon.NewSliceNotificationCollector()
-
-	var setHeaders []filters.Header
+	headersToSet := make(map[string]string)
 	for _, h := range requestHeaders.Set {
-		setHeaders = append(setHeaders, filters.Header{
-			Name:  h.Name,
-			Value: h.Value,
-		})
+		headersToSet[h.Name] = h.Value
 	}
-
-	filter := filters.NewHTTPRouteFilter(filters.RequestHeaderModifierFilter, filters.FilterOptions{
-		HeaderModifier: &filters.HeaderModifierOptions{
-			SetHeaders: setHeaders,
-		},
-		NotificationCollector: collector,
-		SourceObject:          &vs,
-	})
 
 	// Handle header removal (Pass: false means remove all the other headers) - this is NGINX-specific
 	if requestHeaders.Pass != nil && !*requestHeaders.Pass {
-		collector.AddWarning("Request header pass=false ignored - complex header filtering not fully supported", &vs)
+		addNotification(notifs, notifications.WarningNotification, "Request header pass=false ignored - complex header filtering not fully supported", &vs)
 	}
 
-	*notifs = append(*notifs, collector.GetNotifications()...)
-
-	return filter
+	return ncommon.CreateRequestHeaderModifier(headersToSet)
 }
 
 // createResponseHeaderFilter creates a ResponseHeaderModifier filter using the unified factory
@@ -138,35 +110,48 @@ func createResponseHeaderFilter(responseHeaders *nginxv1.ProxyResponseHeaders, v
 		return nil
 	}
 
-	collector := ncommon.NewSliceNotificationCollector()
-
-	var filtersHeaders []filters.Header
+	// Handle add headers with warnings for unsupported features
+	headersToSet := make(map[string]string)
 	for _, addHeader := range responseHeaders.Add {
-		filtersHeaders = append(filtersHeaders, filters.Header{
-			Name:  addHeader.Name,
-			Value: addHeader.Value,
-		})
+		headersToSet[addHeader.Name] = addHeader.Value
 		// Handle the Always flag - NGINX-specific feature
 		if !addHeader.Always {
-			collector.AddWarning("always flag is always true in gateway api", &vs)
+			addNotification(notifs, notifications.WarningNotification, "always flag is always true in gateway api", &vs)
 		}
 	}
 
-	filter := filters.NewHTTPRouteFilter(filters.ResponseHeaderModifierFilter, filters.FilterOptions{
-		HeaderModifier: &filters.HeaderModifierOptions{
-			SetHeaders:    filtersHeaders,
-			RemoveHeaders: responseHeaders.Hide,
-		},
-		NotificationCollector: collector,
-		SourceObject:          &vs,
-	})
-
 	// Handle selective header passing/ignoring - NGINX-specific
 	if len(responseHeaders.Pass) > 0 || len(responseHeaders.Ignore) > 0 {
-		collector.AddWarning("Response header pass/ignore configuration is not supported in Gateway API", &vs)
+		addNotification(notifs, notifications.WarningNotification, "Response header pass/ignore configuration is not supported in Gateway API", &vs)
 	}
 
-	*notifs = append(*notifs, collector.GetNotifications()...)
+	// Create filter with both set and remove operations
+	if len(headersToSet) > 0 && len(responseHeaders.Hide) > 0 {
+		// For now, prioritize hide (remove) headers since it's more commonly needed
+		addNotification(notifs, notifications.InfoNotification, "Response header add operation ignored when hide is also specified", &vs)
+		return ncommon.CreateResponseHeaderModifier(responseHeaders.Hide)
+	}
 
-	return filter
+	if len(responseHeaders.Hide) > 0 {
+		return ncommon.CreateResponseHeaderModifier(responseHeaders.Hide)
+	}
+
+	// Handle add headers (not directly supported by our common function, so create manually)
+	if len(headersToSet) > 0 {
+		var headers []gatewayv1.HTTPHeader
+		for name, value := range headersToSet {
+			headers = append(headers, gatewayv1.HTTPHeader{
+				Name:  gatewayv1.HTTPHeaderName(name),
+				Value: value,
+			})
+		}
+		return &gatewayv1.HTTPRouteFilter{
+			Type: gatewayv1.HTTPRouteFilterResponseHeaderModifier,
+			ResponseHeaderModifier: &gatewayv1.HTTPHeaderFilter{
+				Set: headers,
+			},
+		}
+	}
+
+	return nil
 }

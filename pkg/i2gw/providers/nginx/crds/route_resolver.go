@@ -83,10 +83,7 @@ func (r *RouteResolver) ResolveRoutesForVirtualServer(vs nginxv1.VirtualServer) 
 	var notifs []notifications.Notification
 
 	for _, route := range vs.Spec.Routes {
-		resolved, routeNotifs, err := r.resolveRoute(route, vs)
-		if err != nil {
-			return nil, notifs, err
-		}
+		resolved, routeNotifs := r.resolveRoute(route, vs)
 
 		resolvedRoutes = append(resolvedRoutes, resolved...)
 		notifs = append(notifs, routeNotifs...)
@@ -96,7 +93,7 @@ func (r *RouteResolver) ResolveRoutesForVirtualServer(vs nginxv1.VirtualServer) 
 }
 
 // resolveRoute resolves a single route, handling both inline routes and VSR references
-func (r *RouteResolver) resolveRoute(route nginxv1.Route, vs nginxv1.VirtualServer) ([]ResolvedRoute, []notifications.Notification, error) {
+func (r *RouteResolver) resolveRoute(route nginxv1.Route, vs nginxv1.VirtualServer) ([]ResolvedRoute, []notifications.Notification) {
 	var notifs []notifications.Notification
 
 	// If this is an inline route (no reference to VirtualServerRoute)
@@ -109,7 +106,7 @@ func (r *RouteResolver) resolveRoute(route nginxv1.Route, vs nginxv1.VirtualServ
 				Name:      vs.Name,
 			},
 			VirtualServer: vs,
-		}}, notifs, nil
+		}}, notifs
 	}
 
 	// This is a VirtualServerRoute reference
@@ -125,7 +122,7 @@ func (r *RouteResolver) resolveRoute(route nginxv1.Route, vs nginxv1.VirtualServ
 			&vs,
 		)
 		notifs = append(notifs, notif)
-		return []ResolvedRoute{}, notifs, nil
+		return []ResolvedRoute{}, notifs
 	}
 
 	// Resolve all routes in the VirtualServerRoute
@@ -154,7 +151,7 @@ func (r *RouteResolver) resolveRoute(route nginxv1.Route, vs nginxv1.VirtualServ
 		notifs = append(notifs, notif)
 	}
 
-	return resolvedRoutes, notifs, nil
+	return resolvedRoutes, notifs
 }
 
 // parseVSRReference parses a VirtualServerRoute reference string

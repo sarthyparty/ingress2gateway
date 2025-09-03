@@ -1,5 +1,5 @@
 /*
-Copyright 2024 The Kubernetes Authors.
+Copyright 2025 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,21 +19,23 @@ package crds
 import (
 	"fmt"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1alpha3 "sigs.k8s.io/gateway-api/apis/v1alpha3"
 
 	"github.com/kubernetes-sigs/ingress2gateway/pkg/i2gw/notifications"
 	ncommon "github.com/kubernetes-sigs/ingress2gateway/pkg/i2gw/providers/nginx/common"
-	"github.com/kubernetes-sigs/ingress2gateway/pkg/i2gw/providers/nginx/common/resources"
 	nginxv1 "github.com/nginx/kubernetes-ingress/pkg/apis/configuration/v1"
 )
 
 // UpstreamConfig represents supported upstream configuration for conversion
 type UpstreamConfig struct {
-	Name    string // The name of the upstream
-	Service string // The name of a service
-	Port    uint16 // The port of the service
-	Type    string // The type of the upstream (http or grpc)
+	Name    string               // The name of the upstream
+	Service string               // The name of a service
+	Port    uint16               // The port of the service
+	Type    string               // The type of the upstream (http or grpc)
 	TLS     *nginxv1.UpstreamTLS // The TLS configuration for the Upstream
 }
 
@@ -215,9 +217,6 @@ func checkUnsupportedUpstreamFields(upstream *nginxv1.Upstream, vs *nginxv1.Virt
 func processUpstreamTLSPolicies(vs nginxv1.VirtualServer, notifs *[]notifications.Notification) map[types.NamespacedName]gatewayv1alpha3.BackendTLSPolicy {
 	backendTLSPolicies := make(map[types.NamespacedName]gatewayv1alpha3.BackendTLSPolicy)
 
-	// Create notification collector for resource creation
-	collector := ncommon.NewSliceNotificationCollector()
-
 	for _, upstream := range vs.Spec.Upstreams {
 		if !validateUpstream(&upstream, &vs, notifs) {
 			continue
@@ -225,29 +224,42 @@ func processUpstreamTLSPolicies(vs nginxv1.VirtualServer, notifs *[]notification
 
 		// Create BackendTLSPolicy if TLS is enabled
 		if upstream.TLS.Enable {
-			policyName := resources.GenerateBackendTLSPolicyName(upstream.Service, upstream.Name)
-			policyKey := resources.GeneratePolicyKey(vs.Namespace, policyName)
+			policyName := fmt.Sprintf("%s-%s-tls-policy", upstream.Service, upstream.Name)
+			policyKey := types.NamespacedName{Namespace: vs.Namespace, Name: policyName}
 
-			// Create BackendTLSPolicy using unified factory
-			policy := resources.CreateBackendTLSPolicy(resources.PolicyOptions{
-				BackendTLS: resources.NewBackendTLSPolicyOptions(
-					policyName,
-					vs.Namespace,
-					upstream.Service,
-					"nginx-virtualserver-tls",
-				),
-				NotificationCollector: collector,
-				SourceObject:          &vs,
-			})
-
-			if policy != nil {
-				backendTLSPolicies[policyKey] = *policy
+			// Create BackendTLSPolicy directly
+			policy := gatewayv1alpha3.BackendTLSPolicy{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: gatewayv1alpha3.GroupVersion.String(),
+					Kind:       "BackendTLSPolicy",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      policyName,
+					Namespace: vs.Namespace,
+					Labels: map[string]string{
+						"app.kubernetes.io/managed-by": "ingress2gateway",
+						"ingress2gateway.io/source":    "nginx-virtualserver-tls",
+					},
+				},
+				Spec: gatewayv1alpha3.BackendTLSPolicySpec{
+					TargetRefs: []gatewayv1alpha2.LocalPolicyTargetReferenceWithSectionName{
+						{
+							LocalPolicyTargetReference: gatewayv1alpha2.LocalPolicyTargetReference{
+								Group: gatewayv1alpha2.Group(ncommon.CoreGroup),
+								Kind:  gatewayv1alpha2.Kind(ncommon.ServiceKind),
+								Name:  gatewayv1alpha2.ObjectName(upstream.Service),
+							},
+						},
+					},
+					Validation: gatewayv1alpha3.BackendTLSPolicyValidation{
+						Hostname: gatewayv1.PreciseHostname(upstream.Service),
+					},
+				},
 			}
+
+			backendTLSPolicies[policyKey] = policy
 		}
 	}
-
-	// Merge notifications from factory into the main notification list
-	*notifs = append(*notifs, collector.GetNotifications()...)
 
 	return backendTLSPolicies
 }

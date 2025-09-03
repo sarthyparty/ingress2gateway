@@ -1,5 +1,5 @@
 /*
-Copyright 2024 The Kubernetes Authors.
+Copyright 2025 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -34,14 +34,14 @@ import (
 type VirtualServerRouteConverter struct {
 	vs               nginxv1.VirtualServer
 	resolver         *RouteResolver
-	virtualServerMap map[string][]gatewayListenerKey
+	virtualServerMap map[string][]GatewayListenerKey
 	notificationList *[]notifications.Notification
 	listenerMap      map[string]gatewayv1.Listener
 	upstreamConfigs  map[string]*UpstreamConfig
 }
 
 // NewVirtualServerRouteConverter creates a new converter
-func NewVirtualServerRouteConverter(vs nginxv1.VirtualServer, resolver *RouteResolver, virtualServerMap map[string][]gatewayListenerKey, notifs *[]notifications.Notification, listenerMap map[string]gatewayv1.Listener, upstreamConfigs map[string]*UpstreamConfig) *VirtualServerRouteConverter {
+func NewVirtualServerRouteConverter(vs nginxv1.VirtualServer, resolver *RouteResolver, virtualServerMap map[string][]GatewayListenerKey, notifs *[]notifications.Notification, listenerMap map[string]gatewayv1.Listener, upstreamConfigs map[string]*UpstreamConfig) *VirtualServerRouteConverter {
 	return &VirtualServerRouteConverter{
 		vs:               vs,
 		resolver:         resolver,
@@ -573,6 +573,14 @@ func (c *VirtualServerRouteConverter) convertHTTPFiltersToGRPCFilters(httpFilter
 		case gatewayv1.HTTPRouteFilterURLRewrite:
 			c.addNotification(notifications.InfoNotification,
 				"HTTP URL rewrite filter not applicable to gRPC, skipping")
+
+		case gatewayv1.HTTPRouteFilterRequestMirror:
+			c.addNotification(notifications.InfoNotification,
+				"HTTP request mirror filter not applicable to gRPC, skipping")
+
+		case gatewayv1.HTTPRouteFilterExtensionRef:
+			c.addNotification(notifications.InfoNotification,
+				"HTTP extension ref filter not applicable to gRPC, skipping")
 
 		default:
 			c.addNotification(notifications.WarningNotification,

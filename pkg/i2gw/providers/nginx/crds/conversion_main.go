@@ -18,7 +18,6 @@ package crds
 
 import (
 	"fmt"
-	"maps"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
