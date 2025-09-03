@@ -27,7 +27,6 @@ import (
 
 	"github.com/kubernetes-sigs/ingress2gateway/pkg/i2gw/intermediate"
 	"github.com/kubernetes-sigs/ingress2gateway/pkg/i2gw/notifications"
-	"github.com/kubernetes-sigs/ingress2gateway/pkg/i2gw/providers/nginx/common"
 	nginxv1 "github.com/nginx/kubernetes-ingress/pkg/apis/configuration/v1"
 )
 
@@ -177,8 +176,8 @@ func (f *NamespaceGatewayFactory) createListeners(gatewayName string) ([]gateway
 						Mode: Ptr(gatewayv1.TLSModeTerminate),
 						CertificateRefs: []gatewayv1.SecretObjectReference{
 							{
-								Group: Ptr(gatewayv1.Group(common.CoreGroup)),
-								Kind:  Ptr(gatewayv1.Kind(common.SecretKind)),
+								Group: Ptr(gatewayv1.Group("")),
+								Kind:  Ptr(gatewayv1.Kind("Secret")),
 								Name:  gatewayv1.ObjectName(secret),
 							},
 						},
@@ -234,8 +233,8 @@ func (f *NamespaceGatewayFactory) createListeners(gatewayName string) ([]gateway
 						Mode: Ptr(gatewayv1.TLSModeTerminate),
 						CertificateRefs: []gatewayv1.SecretObjectReference{
 							{
-								Group: Ptr(gatewayv1.Group(common.CoreGroup)),
-								Kind:  Ptr(gatewayv1.Kind(common.SecretKind)),
+								Group: Ptr(gatewayv1.Group("")),
+								Kind:  Ptr(gatewayv1.Kind("Secret")),
 								Name:  gatewayv1.ObjectName(ts.Spec.TLS.Secret),
 							},
 						},
