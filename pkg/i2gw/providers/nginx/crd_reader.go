@@ -44,7 +44,7 @@ func genericReadFromCluster[T any](ctx context.Context, c client.Client, namespa
 
 		items = append(items, *obj)
 	}
-	
+
 	return items, nil
 }
 
@@ -69,6 +69,7 @@ func genericReadFromFile[T any](filename string, namespace string, gvk schema.Gr
 		if namespace != "" && u.GetNamespace() != namespace {
 			continue
 		}
+
 		if !u.GroupVersionKind().Empty() && u.GroupVersionKind() == gvk {
 			obj := newObj()
 			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.UnstructuredContent(), obj); err != nil {
@@ -77,5 +78,6 @@ func genericReadFromFile[T any](filename string, namespace string, gvk schema.Gr
 			items = append(items, *obj)
 		}
 	}
+	
 	return items, nil
 }
