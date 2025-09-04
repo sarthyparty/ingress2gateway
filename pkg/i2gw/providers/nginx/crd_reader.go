@@ -36,12 +36,15 @@ func genericReadFromCluster[T any](ctx context.Context, c client.Client, namespa
 		if u.GetNamespace() != namespace {
 			continue
 		}
+
 		obj := newObj()
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.UnstructuredContent(), obj); err != nil {
 			return nil, fmt.Errorf("failed to parse %s object %s/%s: %w", gvk.Kind, u.GetNamespace(), u.GetName(), err)
 		}
+
 		items = append(items, *obj)
 	}
+	
 	return items, nil
 }
 
