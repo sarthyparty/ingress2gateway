@@ -15,6 +15,8 @@ import (
 )
 
 // genericReadFromCluster reads CRDs of type T from the cluster using the given GVK.
+// If namespace is non-empty, only resources from that namespace are returned.
+// If namespace is empty, resources from all namespaces are returned.
 func genericReadFromCluster[T any](ctx context.Context, c client.Client, namespace string, gvk schema.GroupVersionKind, newObj func() *T) ([]T, error) {
 	list := &unstructured.UnstructuredList{}
 	list.SetGroupVersionKind(gvk)
@@ -25,6 +27,7 @@ func genericReadFromCluster[T any](ctx context.Context, c client.Client, namespa
 
 	var items []T
 	for _, u := range list.Items {
+		// Filter by namespace if specified; otherwise include resources from all namespaces
 		if namespace != "" && u.GetNamespace() != namespace {
 			continue
 		}
@@ -38,6 +41,8 @@ func genericReadFromCluster[T any](ctx context.Context, c client.Client, namespa
 }
 
 // genericReadFromFile reads CRDs of type T from a YAML file using the given GVK.
+// If namespace is non-empty, only resources from that namespace are returned.
+// If namespace is empty, resources from all namespaces are returned.
 func genericReadFromFile[T any](filename string, namespace string, gvk schema.GroupVersionKind, newObj func() *T) ([]T, error) {
 	data, err := os.ReadFile(filename)
 	if err != nil {
@@ -52,6 +57,7 @@ func genericReadFromFile[T any](filename string, namespace string, gvk schema.Gr
 
 	var items []T
 	for _, u := range objs {
+		// Filter by namespace if specified; otherwise include resources from all namespaces
 		if namespace != "" && u.GetNamespace() != namespace {
 			continue
 		}
