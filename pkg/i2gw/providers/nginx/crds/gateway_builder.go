@@ -306,6 +306,7 @@ func (f *NamespaceGatewayFactory) getListenerPorts(vs nginxv1.VirtualServer) (ht
 				}
 			}
 		}
+
 		if vs.Spec.Listener.HTTPS != "" {
 			if listener, found := f.listenerMap[vs.Spec.Listener.HTTPS]; found {
 				if listener.Protocol == gatewayv1.HTTPSProtocolType {
@@ -320,6 +321,7 @@ func (f *NamespaceGatewayFactory) getListenerPorts(vs nginxv1.VirtualServer) (ht
 			httpsPort = namespaceGatewayHTTPSPort
 		}
 	}
+	
 	return httpPort, httpsPort
 }
 
