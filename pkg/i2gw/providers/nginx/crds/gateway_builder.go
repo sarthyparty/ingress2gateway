@@ -321,7 +321,7 @@ func (f *NamespaceGatewayFactory) getListenerPorts(vs nginxv1.VirtualServer) (ht
 			httpsPort = namespaceGatewayHTTPSPort
 		}
 	}
-	
+
 	return httpPort, httpsPort
 }
 
@@ -333,6 +333,7 @@ func (f *NamespaceGatewayFactory) getTransportServerPort(ts nginxv1.TransportSer
 	if listener, exists := f.listenerMap[listenerName]; exists {
 		return common.PtrTo(int(listener.Port))
 	}
+	
 	return nil
 }
 
