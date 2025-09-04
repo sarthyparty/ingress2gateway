@@ -278,13 +278,13 @@ func (f *NamespaceGatewayFactory) createListeners(gatewayName string) ([]gateway
 		allResourceListenerMap[resourceName] = listenerKeys
 	}
 
-	// Sort 2: Convert unique listener map to slice for Gateway spec
+	// Convert unique listener map to slice for Gateway spec
 	var listeners []gatewayv1.Listener
 	for _, listener := range uniqueListeners {
 		listeners = append(listeners, listener)
 	}
 
-	// Sort 3: Sort Gateway listeners by name for deterministic Gateway.spec.listeners order
+	// Sort 2: Sort Gateway listeners by name for deterministic Gateway.spec.listeners order
 	// This ensures the Gateway YAML output has consistent listener ordering
 	sort.Slice(listeners, func(i, j int) bool {
 		return string(listeners[i].Name) < string(listeners[j].Name)
