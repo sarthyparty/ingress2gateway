@@ -113,11 +113,9 @@ func CRDsToGatewayIR(
 
 		// Create shared gateway for both VirtualServers and TransportServers
 		gatewayFactory := NewNamespaceGatewayFactory(namespace, vsListForNamespace, tsListForNamespace, listenerMap)
-		gateways, _ := gatewayFactory.CreateNamespaceGateway()
+		gatewayKey, gatewayContext, _ := gatewayFactory.CreateNamespaceGateway()
 
-		for gatewayKey, gateway := range gateways {
-			gatewayMap[gatewayKey] = gateway
-		}
+		gatewayMap[gatewayKey] = gatewayContext
 
 		// TODO: VirtualServer and TransportServer route conversion will be added in subsequent PRs
 	}

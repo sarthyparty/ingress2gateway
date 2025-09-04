@@ -68,19 +68,17 @@ func NewNamespaceGatewayFactory(namespace string, virtualServers []nginxv1.Virtu
 }
 
 // CreateNamespaceGateway creates a single Gateway for all VirtualServers and TransportServers in the namespace
-func (f *NamespaceGatewayFactory) CreateNamespaceGateway() (map[types.NamespacedName]intermediate.GatewayContext, map[string][]gatewayListenerKey) {
+func (f *NamespaceGatewayFactory) CreateNamespaceGateway() (types.NamespacedName, intermediate.GatewayContext, map[string][]gatewayListenerKey) {
 	gatewayName := DefaultGatewayName
 	gatewayKey := types.NamespacedName{
 		Namespace: f.namespace,
 		Name:      gatewayName,
 	}
 
-	gateways := make(map[types.NamespacedName]intermediate.GatewayContext)
-
 	// Create all listeners for the single gateway
 	listeners, virtualServerMap := f.createListeners(gatewayName)
 
-	gateways[gatewayKey] = intermediate.GatewayContext{
+	gatewayContext := intermediate.GatewayContext{
 		Gateway: gatewayv1.Gateway{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: gatewayv1.GroupVersion.String(),
@@ -104,7 +102,7 @@ func (f *NamespaceGatewayFactory) CreateNamespaceGateway() (map[types.Namespaced
 		},
 	}
 
-	return gateways, virtualServerMap
+	return gatewayKey, gatewayContext, virtualServerMap
 }
 
 // createListeners creates HTTP and HTTPS listeners for the Gateway
