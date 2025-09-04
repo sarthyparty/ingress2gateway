@@ -59,12 +59,22 @@ func CRDsToGatewayIR(
 	// Group resources by namespace
 	namespaceVSMap := make(map[string][]nginxv1.VirtualServer)
 	for _, vs := range validVirtualServers {
-		namespaceVSMap[vs.Namespace] = append(namespaceVSMap[vs.Namespace], vs)
+		// Use "default" namespace if namespace is empty (shouldn't happen with valid resources)
+		namespace := vs.Namespace
+		if namespace == "" {
+			namespace = "default"
+		}
+		namespaceVSMap[namespace] = append(namespaceVSMap[namespace], vs)
 	}
 
 	namespaceTSMap := make(map[string][]nginxv1.TransportServer)
 	for _, ts := range transportServers {
-		namespaceTSMap[ts.Namespace] = append(namespaceTSMap[ts.Namespace], ts)
+		// Use "default" namespace if namespace is empty (shouldn't happen with valid resources)
+		namespace := ts.Namespace
+		if namespace == "" {
+			namespace = "default"
+		}
+		namespaceTSMap[namespace] = append(namespaceTSMap[namespace], ts)
 	}
 
 	// Initialize result maps
