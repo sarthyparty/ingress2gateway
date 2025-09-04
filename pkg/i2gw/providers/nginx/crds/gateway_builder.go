@@ -350,40 +350,64 @@ func (f *NamespaceGatewayFactory) generateTransportListenerName(ts nginxv1.Trans
 }
 
 
-// sanitizeHostname replaces special characters for use in sectionName
+// sanitizeHostname replaces special characters in hostnames for use in Gateway listener section names.
+// Gateway API section names must be valid RFC 1123 subdomain names (max 63 chars, lowercase alphanumeric + hyphens).
 func sanitizeHostname(host string) string {
 	if host == "" {
 		return "catchall"
 	}
+	
+	// Convert to lowercase and replace invalid characters with hyphens
 	host = strings.ToLower(host)
 	host = strings.ReplaceAll(host, ".", "-")
 	host = strings.ReplaceAll(host, "*", "wildcard")
 	host = strings.ReplaceAll(host, ":", "-")
 	host = strings.ReplaceAll(host, "_", "-")
+	
+	// Remove leading/trailing hyphens as they're not valid in DNS names
 	host = strings.Trim(host, "-")
+	
+	// Handle edge case where all characters were invalid
 	if host == "" {
 		return "catchall"
 	}
-	if len(host) > 30 { // Keep it shorter for section names
+	
+	// Truncate to reasonable length for section names (well under 63 char limit)
+	if len(host) > 30 {
 		host = host[:30]
+		// Ensure we don't end with a hyphen after truncation
+		host = strings.TrimRight(host, "-")
 	}
+	
 	return host
 }
 
-// sanitizeSecret replaces special characters in secret names for use in sectionName
+// sanitizeSecret replaces special characters in secret names for use in Gateway listener section names.
+// This provides a sanitized representation of the secret name to ensure unique listener names.
 func sanitizeSecret(secret string) string {
 	if secret == "" {
 		return "nosecret"
 	}
+	
+	// Convert to lowercase and replace invalid characters with hyphens
 	secret = strings.ToLower(secret)
 	secret = strings.ReplaceAll(secret, ".", "-")
 	secret = strings.ReplaceAll(secret, "_", "-")
+	
+	// Remove leading/trailing hyphens
 	secret = strings.Trim(secret, "-")
+	
+	// Handle edge case where all characters were invalid
 	if secret == "" {
 		return "nosecret"
 	}
-	if len(secret) > 20 { // Keep it shorter for section names
+	
+	// Truncate to keep section names manageable
+	if len(secret) > 20 {
 		secret = secret[:20]
+		// Ensure we don't end with a hyphen after truncation
+		secret = strings.TrimRight(secret, "-")
 	}
+	
 	return secret
 }
