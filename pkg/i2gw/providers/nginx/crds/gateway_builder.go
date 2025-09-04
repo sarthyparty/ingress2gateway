@@ -287,9 +287,10 @@ func (f *NamespaceGatewayFactory) createListeners(gatewayName string) ([]gateway
 
 // getListenerPorts determines which ports/protocols a VirtualServer needs
 func (f *NamespaceGatewayFactory) getListenerPorts(vs nginxv1.VirtualServer) (httpPort, httpsPort int) {
-	// Check if VirtualServer specifies custom listeners
+	// Check if VirtualServer references custom listeners defined in GlobalConfiguration
 	if vs.Spec.Listener != nil {
-		// Use custom listeners from GlobalConfiguration
+		// Look up custom listener configurations from the GlobalConfiguration resource
+		// The listenerMap was populated from globalConfiguration.Spec.Listeners in the main conversion function
 		if vs.Spec.Listener.HTTP != "" {
 			if listener, found := f.listenerMap[vs.Spec.Listener.HTTP]; found {
 				if listener.Protocol == gatewayv1.HTTPProtocolType {
@@ -305,7 +306,7 @@ func (f *NamespaceGatewayFactory) getListenerPorts(vs nginxv1.VirtualServer) (ht
 			}
 		}
 	} else {
-		// Use default ports
+		// Use NGINX Ingress Controller default ports when no custom listeners are specified
 		httpPort = namespaceGatewayHTTPPort
 		if vs.Spec.TLS != nil {
 			httpsPort = namespaceGatewayHTTPSPort
@@ -314,7 +315,9 @@ func (f *NamespaceGatewayFactory) getListenerPorts(vs nginxv1.VirtualServer) (ht
 	return httpPort, httpsPort
 }
 
-// getTransportServerPort determines the port for a TransportServer from GlobalConfiguration or defaults
+// getTransportServerPort determines the port for a TransportServer by looking up its listener in GlobalConfiguration.
+// TransportServers require explicit listener configuration in GlobalConfiguration, unlike VirtualServers which have defaults.
+// Returns nil if the referenced listener is not found in the GlobalConfiguration.
 func (f *NamespaceGatewayFactory) getTransportServerPort(ts nginxv1.TransportServer) *int {
 	listenerName := ts.Spec.Listener.Name
 	if listener, exists := f.listenerMap[listenerName]; exists {
