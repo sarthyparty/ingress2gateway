@@ -253,34 +253,44 @@ func (f *NamespaceGatewayFactory) createListeners(gatewayName string) ([]gateway
 		})
 	}
 
-	// Merge virtualServerMap and transportServerMap
+	// Create combined map of all resources (VirtualServers + TransportServers) to their listeners
+	allResourceListenerMap := make(map[string][]gatewayListenerKey)
+	
+	// Add VirtualServer mappings
+	for vsName, listeners := range virtualServerMap {
+		allResourceListenerMap[vsName] = listeners
+	}
+	
+	// Add TransportServer mappings
 	for tsName, listeners := range transportServerMap {
-		virtualServerMap[tsName] = listeners
+		allResourceListenerMap[tsName] = listeners
 	}
 
-	// Sort virtualServerMap entries for deterministic parent references
-	for vsName, listenerKeys := range virtualServerMap {
+	// Sort 1: Sort listener keys within each resource for deterministic parent references in HTTPRoute/TCPRoute/etc
+	// This ensures that when routes reference listeners, the parentRef order is consistent across runs
+	for resourceName, listenerKeys := range allResourceListenerMap {
 		sort.Slice(listenerKeys, func(i, j int) bool {
 			if listenerKeys[i].gatewayName != listenerKeys[j].gatewayName {
 				return listenerKeys[i].gatewayName < listenerKeys[j].gatewayName
 			}
 			return listenerKeys[i].listenerName < listenerKeys[j].listenerName
 		})
-		virtualServerMap[vsName] = listenerKeys
+		allResourceListenerMap[resourceName] = listenerKeys
 	}
 
-	// Convert map to slice and sort for deterministic order
+	// Sort 2: Convert unique listener map to slice for Gateway spec
 	var listeners []gatewayv1.Listener
 	for _, listener := range uniqueListeners {
 		listeners = append(listeners, listener)
 	}
 
-	// Sort listeners by name for deterministic ordering
+	// Sort 3: Sort Gateway listeners by name for deterministic Gateway.spec.listeners order
+	// This ensures the Gateway YAML output has consistent listener ordering
 	sort.Slice(listeners, func(i, j int) bool {
 		return string(listeners[i].Name) < string(listeners[j].Name)
 	})
 
-	return listeners, virtualServerMap
+	return listeners, allResourceListenerMap
 }
 
 // getListenerPorts determines which ports/protocols a VirtualServer needs
