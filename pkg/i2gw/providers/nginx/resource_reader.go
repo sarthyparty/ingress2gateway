@@ -57,12 +57,15 @@ func newResourceReader(conf *i2gw.ProviderConf) *resourceReader {
 
 // helper constructors for CRD types
 func newVirtualServer() *nginxv1.VirtualServer { return &nginxv1.VirtualServer{} }
+
 func newVirtualServerRoute() *nginxv1.VirtualServerRoute {
 	return &nginxv1.VirtualServerRoute{}
 }
+
 func newTransportServer() *nginxv1.TransportServer {
 	return &nginxv1.TransportServer{}
 }
+
 func newGlobalConfiguration() *nginxv1.GlobalConfiguration {
 	return &nginxv1.GlobalConfiguration{}
 }
