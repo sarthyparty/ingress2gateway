@@ -3,11 +3,10 @@ kind: Gateway
 metadata:
   annotations:
     gateway.networking.k8s.io/generator: ingress2gateway-dev
-  creationTimestamp: null
   labels:
     app.kubernetes.io/managed-by: ingress2gateway
     ingress2gateway.io/source: nginx-virtualserver
-  name: default-gateway
+  name: nginx
   namespace: default
 spec:
   gatewayClassName: nginx
@@ -22,7 +21,7 @@ spec:
     protocol: HTTPS
     tls:
       certificateRefs:
-      - group: core
+      - group: ""
         kind: Secret
         name: platform-tls
       mode: Terminate
@@ -33,7 +32,6 @@ kind: HTTPRoute
 metadata:
   annotations:
     gateway.networking.k8s.io/generator: ingress2gateway-dev
-  creationTimestamp: null
   labels:
     app.kubernetes.io/managed-by: ingress2gateway
     ingress2gateway.io/source: nginx-virtualserver
@@ -44,9 +42,9 @@ spec:
   hostnames:
   - platform.example.com
   parentRefs:
-  - name: default-gateway
+  - name: nginx
     sectionName: http-80-platform-example-com
-  - name: default-gateway
+  - name: nginx
     sectionName: https-443-platform-example-com-platform-tls
   rules:
   - backendRefs:
@@ -56,5 +54,73 @@ spec:
     - path:
         type: PathPrefix
         value: /
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/users
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/users/cache
+  - matches:
+    - headers:
+      - name: X-User-ID
+        type: RegularExpression
+        value: .*
+      path:
+        type: PathPrefix
+        value: /api/v1/users/profile
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/users/profile
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/orders
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/orders/payment
+  - matches:
+    - headers:
+      - name: X-Beta-Access
+        type: RegularExpression
+        value: (?i)^enabled$
+      path:
+        type: PathPrefix
+        value: /api/v2/beta
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v2/beta
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /admin/dashboard
+  - matches:
+    - headers:
+      - name: Authorization
+        type: RegularExpression
+        value: Bearer .*
+      - name: X-Admin-Role
+        type: RegularExpression
+        value: admin|superadmin
+      path:
+        type: PathPrefix
+        value: /admin/users
+  - filters:
+    - requestRedirect:
+        hostname: auth.example.com
+        path:
+          replaceFullPath: /admin
+          type: ReplaceFullPath
+        scheme: https
+        statusCode: 302
+      type: RequestRedirect
+    matches:
+    - path:
+        type: PathPrefix
+        value: /admin/users
 status:
   parents: null

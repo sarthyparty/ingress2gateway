@@ -1,16 +1,8 @@
-Notifications from NGINX:
-+--------------+-------------------------------------------------------------------------------------------------------------------------------------+----------------------------------+
-| MESSAGE TYPE |                                                            NOTIFICATION                                                             |          CALLING OBJECT          |
-+--------------+-------------------------------------------------------------------------------------------------------------------------------------+----------------------------------+
-| WARNING      | nginx.org/path-regex: PathMatchRegularExpression is not supported by NGINX Gateway Fabric - only Exact and PathPrefix are supported | Ingress: default/test-path-regex |
-+--------------+-------------------------------------------------------------------------------------------------------------------------------------+----------------------------------+
-
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   annotations:
     gateway.networking.k8s.io/generator: ingress2gateway-dev
-  creationTimestamp: null
   name: nginx
   namespace: default
 spec:
@@ -27,7 +19,6 @@ kind: HTTPRoute
 metadata:
   annotations:
     gateway.networking.k8s.io/generator: ingress2gateway-dev
-  creationTimestamp: null
   name: test-path-regex-example-com
   namespace: default
 spec:

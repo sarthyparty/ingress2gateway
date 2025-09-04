@@ -3,11 +3,10 @@ kind: Gateway
 metadata:
   annotations:
     gateway.networking.k8s.io/generator: ingress2gateway-dev
-  creationTimestamp: null
   labels:
     app.kubernetes.io/managed-by: ingress2gateway
     ingress2gateway.io/source: nginx-virtualserver
-  name: default-gateway
+  name: nginx
   namespace: default
 spec:
   gatewayClassName: nginx
@@ -23,7 +22,6 @@ kind: HTTPRoute
 metadata:
   annotations:
     gateway.networking.k8s.io/generator: ingress2gateway-dev
-  creationTimestamp: null
   labels:
     app.kubernetes.io/managed-by: ingress2gateway
     ingress2gateway.io/source: nginx-virtualserver
@@ -34,7 +32,7 @@ spec:
   hostnames:
   - app.example.com
   parentRefs:
-  - name: default-gateway
+  - name: nginx
     sectionName: http-80-app-example-com
   rules:
   - backendRefs:
@@ -44,5 +42,38 @@ spec:
     - path:
         type: PathPrefix
         value: /
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/users
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/health
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /admin/dashboard
+  - matches:
+    - headers:
+      - name: Authorization
+        type: RegularExpression
+        value: Bearer .*
+      path:
+        type: PathPrefix
+        value: /admin/api
+  - filters:
+    - requestRedirect:
+        hostname: auth.example.com
+        path:
+          replaceFullPath: /admin-login
+          type: ReplaceFullPath
+        scheme: https
+        statusCode: 302
+      type: RequestRedirect
+    matches:
+    - path:
+        type: PathPrefix
+        value: /admin/api
 status:
   parents: null

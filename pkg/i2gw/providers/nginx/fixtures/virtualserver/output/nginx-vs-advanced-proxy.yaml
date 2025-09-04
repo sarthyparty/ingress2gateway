@@ -3,11 +3,10 @@ kind: Gateway
 metadata:
   annotations:
     gateway.networking.k8s.io/generator: ingress2gateway-dev
-  creationTimestamp: null
   labels:
     app.kubernetes.io/managed-by: ingress2gateway
     ingress2gateway.io/source: nginx-virtualserver
-  name: default-gateway
+  name: nginx
   namespace: default
 spec:
   gatewayClassName: nginx
@@ -22,7 +21,7 @@ spec:
     protocol: HTTPS
     tls:
       certificateRefs:
-      - group: core
+      - group: ""
         kind: Secret
         name: advanced-tls
       mode: Terminate
@@ -33,7 +32,6 @@ kind: HTTPRoute
 metadata:
   annotations:
     gateway.networking.k8s.io/generator: ingress2gateway-dev
-  creationTimestamp: null
   labels:
     app.kubernetes.io/managed-by: ingress2gateway
     ingress2gateway.io/source: nginx-virtualserver
@@ -44,9 +42,9 @@ spec:
   hostnames:
   - advanced.example.com
   parentRefs:
-  - name: default-gateway
+  - name: nginx
     sectionName: http-80-advanced-example-com
-  - name: default-gateway
+  - name: nginx
     sectionName: https-443-advanced-example-com-advanced-tls
   rules:
   - backendRefs:
@@ -60,10 +58,10 @@ spec:
           type: ReplacePrefixMatch
     - requestHeaderModifier:
         set:
-        - name: X-Forwarded-Proto
-          value: https
         - name: X-API-Version
           value: v1
+        - name: X-Forwarded-Proto
+          value: https
       type: RequestHeaderModifier
     - responseHeaderModifier:
         set:

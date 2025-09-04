@@ -3,11 +3,10 @@ kind: Gateway
 metadata:
   annotations:
     gateway.networking.k8s.io/generator: ingress2gateway-dev
-  creationTimestamp: null
   labels:
     app.kubernetes.io/managed-by: ingress2gateway
     ingress2gateway.io/source: nginx-virtualserver
-  name: default-gateway
+  name: nginx
   namespace: default
 spec:
   gatewayClassName: nginx
@@ -22,7 +21,7 @@ spec:
     protocol: HTTPS
     tls:
       certificateRefs:
-      - group: core
+      - group: ""
         kind: Secret
         name: grpc-tls
       mode: Terminate
@@ -33,7 +32,6 @@ kind: HTTPRoute
 metadata:
   annotations:
     gateway.networking.k8s.io/generator: ingress2gateway-dev
-  creationTimestamp: null
   labels:
     app.kubernetes.io/managed-by: ingress2gateway
     ingress2gateway.io/source: nginx-virtualserver
@@ -44,9 +42,9 @@ spec:
   hostnames:
   - api.grpc.example.com
   parentRefs:
-  - name: default-gateway
+  - name: nginx
     sectionName: http-80-api-grpc-example-com
-  - name: default-gateway
+  - name: nginx
     sectionName: https-443-api-grpc-example-com-grpc-tls
   rules:
   - backendRefs:
@@ -75,7 +73,6 @@ kind: GRPCRoute
 metadata:
   annotations:
     gateway.networking.k8s.io/generator: ingress2gateway-dev
-  creationTimestamp: null
   labels:
     app.kubernetes.io/managed-by: ingress2gateway
     ingress2gateway.io/source: nginx-virtualserver
@@ -86,9 +83,9 @@ spec:
   hostnames:
   - api.grpc.example.com
   parentRefs:
-  - name: default-gateway
+  - name: nginx
     sectionName: http-80-api-grpc-example-com
-  - name: default-gateway
+  - name: nginx
     sectionName: https-443-api-grpc-example-com-grpc-tls
   rules:
   - backendRefs:

@@ -3,7 +3,6 @@ kind: Gateway
 metadata:
   annotations:
     gateway.networking.k8s.io/generator: ingress2gateway-dev
-  creationTimestamp: null
   name: nginx
   namespace: default
 spec:
@@ -29,7 +28,6 @@ kind: HTTPRoute
 metadata:
   annotations:
     gateway.networking.k8s.io/generator: ingress2gateway-dev
-  creationTimestamp: null
   name: hsts-test-hsts-example-com
   namespace: default
 spec:
