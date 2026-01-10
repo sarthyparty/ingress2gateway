@@ -1,0 +1,70 @@
+---
+# Basic VirtualServer with VirtualServerRoute
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServer
+metadata:
+  name: main-vs
+  namespace: default
+spec:
+  host: app.example.com
+  upstreams:
+  - name: main-backend
+    service: main-service
+    port: 8080
+  routes:
+  - path: /
+    action:
+      pass: main-backend
+  - path: /api
+    route: api/api-route
+  - path: /admin
+    route: admin-ns/admin-route
+---
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServerRoute
+metadata:
+  name: api-route
+  namespace: api
+spec:
+  host: app.example.com
+  upstreams:
+  - name: api-backend
+    service: api-service
+    port: 3000
+  subroutes:
+  - path: /api/users
+    action:
+      pass: api-backend
+  - path: /api/health
+    action:
+      return:
+        code: 200
+        type: application/json
+        body: '{"status": "ok"}'
+---
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServerRoute
+metadata:
+  name: admin-route
+  namespace: admin-ns
+spec:
+  host: app.example.com
+  upstreams:
+  - name: admin-backend
+    service: admin-service
+    port: 8080
+  subroutes:
+  - path: /admin/dashboard
+    action:
+      pass: admin-backend
+  - path: /admin/api
+    matches:
+    - conditions:
+      - header: Authorization
+        value: "Bearer .*"
+      action:
+        pass: admin-backend
+    action:
+      redirect:
+        url: https://auth.example.com/admin-login
+        code: 302

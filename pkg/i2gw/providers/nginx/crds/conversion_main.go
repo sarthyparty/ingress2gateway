@@ -17,6 +17,9 @@ limitations under the License.
 package crds
 
 import (
+	"fmt"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -32,13 +35,15 @@ import (
 // This function creates one shared Gateway per namespace that handles both Layer 7 and Layer 4 traffic
 func ToGatewayIR(
 	virtualServers []nginxv1.VirtualServer,
-	_ []nginxv1.VirtualServerRoute,
+	virtualServerRoutes []nginxv1.VirtualServerRoute,
 	transportServers []nginxv1.TransportServer,
 	globalConfiguration *nginxv1.GlobalConfiguration) (
 	partial intermediate.IR,
 	notificationList []notifications.Notification,
 	errs field.ErrorList,
 ) {
+	resolver := NewRouteResolver(virtualServers, virtualServerRoutes)
+
 	notificationList = make([]notifications.Notification, 0)
 
 	var validVirtualServers []nginxv1.VirtualServer
@@ -103,13 +108,52 @@ func ToGatewayIR(
 
 		// Create shared gateway for both VirtualServers and TransportServers
 		gatewayFactory := NewNamespaceGatewayFactory(namespace, vsListForNamespace, tsListForNamespace, &notificationList, listenerMap)
-		gateways, _ := gatewayFactory.CreateNamespaceGateway()
+		gateways, virtualServerMap := gatewayFactory.CreateNamespaceGateway()
 
 		for gatewayKey, gateway := range gateways {
 			gatewayMap[gatewayKey] = gateway
 		}
 
-		// TODO: VirtualServer and TransportServer route conversion will be added in subsequent PRs
+		// Convert each VirtualServer to routes (HTTPRoute or GRPCRoute)
+		for _, vs := range vsListForNamespace {
+			// Check for unsupported VirtualServer fields
+			checkUnsupportedVirtualServerFields(vs, &notificationList)
+
+			if vs.Spec.TLS != nil && vs.Spec.TLS.Redirect != nil && vs.Spec.TLS.Redirect.Enable {
+				httpRouteMap[types.NamespacedName{Namespace: vs.Namespace, Name: vs.Name + "-redirect"}] = *createRedirectHTTPRoute(vs, listenerMap)
+			}
+
+			// First, process all upstreams and create config structs
+			upstreamConfigs := make(map[string]*UpstreamConfig)
+			for _, upstream := range vs.Spec.Upstreams {
+				if validateUpstream(&upstream, &vs, &notificationList) {
+					config := populateUpstreamConfig(&upstream, &vs, &notificationList)
+					upstreamConfigs[upstream.Name] = config
+				}
+			}
+
+			// Create HTTPRoute/GRPCRoute converter with upstream configs
+			converter := NewVirtualServerRouteConverter(vs, resolver, virtualServerMap, &notificationList, listenerMap, upstreamConfigs)
+			httpRoutes, grpcRoutes := converter.ConvertToRoutes()
+
+			// Add HTTPRoutes to map
+			for httpRouteKey, httpRoute := range httpRoutes {
+				httpRouteMap[httpRouteKey] = httpRoute
+			}
+
+			// Add GRPCRoutes from converter to map
+			for routeKey, grpcRoute := range grpcRoutes {
+				grpcRouteMap[routeKey] = grpcRoute
+			}
+
+			// Process upstream TLS policies only
+			backendTLSPolicies := processUpstreamTLSPolicies(vs, &notificationList)
+			for policyKey, policy := range backendTLSPolicies {
+				backendTLSPoliciesMap[policyKey] = policy
+			}
+		}
+
+		// TODO: TransportServer conversion will be added in subsequent PR
 	}
 
 	return intermediate.IR{
@@ -121,4 +165,103 @@ func ToGatewayIR(
 		TLSRoutes:          tlsRouteMap,
 		UDPRoutes:          udpRouteMap,
 	}, notificationList, errs
+}
+
+func createRedirectHTTPRoute(vs nginxv1.VirtualServer, listenerMap map[string]gatewayv1.Listener) *intermediate.HTTPRouteContext {
+	port := 80
+	if vs.Spec.Listener != nil && vs.Spec.Listener.HTTP != "" {
+		port = int(listenerMap[vs.Spec.Listener.HTTP].Port)
+	}
+	return &intermediate.HTTPRouteContext{
+		HTTPRoute: gatewayv1.HTTPRoute{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: gatewayv1.GroupVersion.String(),
+				Kind:       "HTTPRoute",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      vs.Name + "-redirect",
+				Namespace: vs.Namespace,
+				Labels: map[string]string{
+					"app.kubernetes.io/managed-by": "ingress2gateway",
+					"ingress2gateway.io/source":    "nginx-virtualserver",
+					"ingress2gateway.io/vs-name":   vs.Name,
+				},
+			},
+			Spec: gatewayv1.HTTPRouteSpec{
+				CommonRouteSpec: gatewayv1.CommonRouteSpec{
+					ParentRefs: []gatewayv1.ParentReference{
+						{
+							Name:        gatewayv1.ObjectName(vs.Namespace + "-gateway"),
+							SectionName: (*gatewayv1.SectionName)(Ptr(fmt.Sprintf("http-%d-%s", port, sanitizeHostname(vs.Spec.Host)))),
+						},
+					},
+				},
+				Rules: []gatewayv1.HTTPRouteRule{
+					{
+						Matches: []gatewayv1.HTTPRouteMatch{
+							{
+								Path: &gatewayv1.HTTPPathMatch{
+									Type:  Ptr(gatewayv1.PathMatchPathPrefix),
+									Value: Ptr("/"),
+								},
+							},
+						},
+						Filters: []gatewayv1.HTTPRouteFilter{
+							{
+								Type: gatewayv1.HTTPRouteFilterRequestRedirect,
+								RequestRedirect: &gatewayv1.HTTPRequestRedirectFilter{
+									StatusCode: vs.Spec.TLS.Redirect.Code,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+// checkUnsupportedVirtualServerFields checks for VirtualServer fields that are not supported in Gateway API conversion
+func checkUnsupportedVirtualServerFields(vs nginxv1.VirtualServer, notifs *[]notifications.Notification) {
+	// Check for Gunzip field
+	if vs.Spec.Gunzip {
+		addNotification(notifs, notifications.WarningNotification,
+			"VirtualServer field 'gunzip' is not supported in Gateway API conversion", &vs)
+	}
+
+	// Check for ExternalDNS field
+	if vs.Spec.ExternalDNS.Enable {
+		addNotification(notifs, notifications.WarningNotification,
+			"VirtualServer field 'externalDNS' is not supported in Gateway API conversion", &vs)
+	}
+
+	// Check for DOS field
+	if vs.Spec.Dos != "" {
+		addNotification(notifs, notifications.WarningNotification,
+			"VirtualServer field 'dos' is not supported in Gateway API conversion", &vs)
+	}
+
+	// Check for Policies field
+	if len(vs.Spec.Policies) > 0 {
+		addNotification(notifs, notifications.WarningNotification,
+			fmt.Sprintf("VirtualServer field 'policies' (%d policies) is not supported in Gateway API conversion", len(vs.Spec.Policies)), &vs)
+	}
+
+	// Check for InternalRoute field
+	if vs.Spec.InternalRoute {
+		addNotification(notifs, notifications.WarningNotification,
+			"VirtualServer field 'internalRoute' is not supported in Gateway API conversion", &vs)
+	}
+
+	// Check for HTTPSnippets field
+	if vs.Spec.HTTPSnippets != "" {
+		addNotification(notifs, notifications.WarningNotification,
+			"VirtualServer field 'http-snippets' is not supported in Gateway API conversion", &vs)
+	}
+
+	// Check for ServerSnippets field
+	if vs.Spec.ServerSnippets != "" {
+		addNotification(notifs, notifications.WarningNotification,
+			"VirtualServer field 'server-snippets' is not supported in Gateway API conversion", &vs)
+	}
 }

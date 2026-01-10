@@ -1,0 +1,21 @@
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServer
+metadata:
+  name: cafe
+  namespace: default
+spec:
+  host: cafe.example.com
+  upstreams:
+  - name: tea
+    service: tea-svc
+    port: 80
+  - name: coffee
+    service: coffee-svc
+    port: 80
+  routes:
+  - path: /tea
+    action:
+      upstream: tea
+  - path: /coffee
+    action:
+      upstream: coffee

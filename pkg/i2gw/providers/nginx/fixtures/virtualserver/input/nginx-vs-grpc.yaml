@@ -1,0 +1,68 @@
+---
+# VirtualServer with both HTTP and gRPC upstreams (mixed routing)
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServer
+metadata:
+  name: mixed-grpc-vs
+  namespace: default
+  annotations:
+    nginx.org/grpc-services: "grpc-service,grpc-auth-service"
+spec:
+  host: api.grpc.example.com
+  tls:
+    secret: grpc-tls
+  upstreams:
+  - name: http-backend
+    service: http-service
+    port: 8080
+  - name: grpc-backend
+    service: grpc-service
+    type: grpc
+    port: 9090
+  - name: grpc-auth-backend
+    service: grpc-auth-service
+    type: grpc
+    port: 9091
+  - name: grpc-data-backend
+    service: grpc-data-service
+    type: grpc
+    port: 9092
+  routes:
+  # HTTP route (should create HTTPRoute)
+  - path: /api/rest
+    action:
+      pass: http-backend
+      
+  # gRPC route (should create GRPCRoute)
+  - path: /api.UserService
+    action:
+      pass: grpc-backend
+      
+  # gRPC route with matches (should create GRPCRoute with multiple rules)
+  - path: /api.AuthService
+    matches:
+    - conditions:
+      - header: authorization
+        value: "Bearer .*"
+      action:
+        pass: grpc-auth-backend
+    action:
+      return:
+        code: 401
+        type: application/json
+        body: '{"error": "Authentication required"}'
+        
+  # gRPC route with traffic splitting
+  - path: /api.DataService
+    splits:
+    - weight: 70
+      action:
+        pass: grpc-backend
+    - weight: 30
+      action:
+        pass: grpc-data-backend
+        
+  # Mixed route: HTTP fallback for gRPC service health check
+  - path: /health
+    action:
+      pass: http-backend
